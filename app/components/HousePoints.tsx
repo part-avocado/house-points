@@ -67,6 +67,8 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   const [error, setError] = useState<string | null>(null);
   const [nextRefresh, setNextRefresh] = useState(15);
   const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showMouse, setShowMouse] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
@@ -105,6 +107,22 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     }
   }, [data]);
 
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+        setShowMouse(false);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+        setShowMouse(true);
+      }
+    } catch (err) {
+      console.error('Error toggling fullscreen:', err);
+    }
+  }, []);
+
   useEffect(() => {
     // Initial fetch
     fetchData();
@@ -115,18 +133,47 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       setNextRefresh(prev => prev > 0 ? prev - 1 : 15);
     }, 1000);
 
+    // Handle fullscreen keyboard shortcut
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+
+    // Handle mouse movement in fullscreen
+    const handleMouseMove = () => {
+      if (isFullscreen) {
+        setShowMouse(true);
+        // Hide mouse after 3 seconds of inactivity
+        const timeout = setTimeout(() => {
+          if (isFullscreen) {
+            setShowMouse(false);
+          }
+        }, 3000);
+        return () => clearTimeout(timeout);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('mousemove', handleMouseMove);
+
     // Cleanup
     return () => {
       clearInterval(refreshInterval);
       clearInterval(countdownInterval);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [fetchData]);
+  }, [fetchData, toggleFullscreen, isFullscreen]);
 
   // Calculate total points
   const totalPoints = data.houses.reduce((sum, house) => sum + house.points, 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 sm:p-8 relative">
+    <div 
+      className={`min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 sm:p-8 relative transition-all duration-300 ${!showMouse ? 'cursor-none' : ''}`}
+    >
       <div className="max-w-7xl mx-auto relative min-h-[calc(100vh-2rem)] sm:min-h-[calc(100vh-4rem)]">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 sm:gap-8">
           {/* Left Column - Rankings */}
