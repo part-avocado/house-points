@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { House, HouseData } from '../types/house';
 import Image from 'next/image';
 
@@ -43,20 +43,59 @@ function formatTimeAgo(timestamp: string) {
   });
 }
 
+function validateHouseData(data: any): data is HouseData {
+  return (
+    data &&
+    Array.isArray(data.houses) &&
+    data.houses.every((house: any) =>
+      typeof house.name === 'string' &&
+      typeof house.points === 'number' &&
+      typeof house.color === 'string'
+    ) &&
+    Array.isArray(data.lastInputs) &&
+    data.lastInputs.every((input: any) =>
+      typeof input.timestamp === 'string' &&
+      typeof input.house === 'string' &&
+      typeof input.points === 'number'
+    )
+  );
+}
+
 export default function HousePoints({ initialData }: HousePointsProps) {
   const [data, setData] = useState<HouseData>(initialData);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nextRefresh, setNextRefresh] = useState(15);
+  const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch('/api/houses');
+      
+      // Add timestamp to prevent caching
+      const response = await fetch(`/api/houses?t=${Date.now()}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
+      });
+      
       if (!response.ok) throw new Error('Failed to fetch data');
+      
       const newData = await response.json();
-      setData(newData);
+      
+      // Validate the data structure
+      if (!validateHouseData(newData)) {
+        throw new Error('Invalid data structure received');
+      }
+      
+      // Only update if the data has changed
+      if (JSON.stringify(newData) !== JSON.stringify(data)) {
+        setData(newData);
+        setLastUpdate(Date.now());
+      }
+      
       setNextRefresh(15);
     } catch (err) {
       console.error('Error fetching house data:', err);
@@ -64,7 +103,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [data]);
 
   useEffect(() => {
     // Initial fetch
@@ -81,7 +120,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       clearInterval(refreshInterval);
       clearInterval(countdownInterval);
     };
-  }, []);
+  }, [fetchData]);
 
   // Calculate total points
   const totalPoints = data.houses.reduce((sum, house) => sum + house.points, 0);
@@ -94,7 +133,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
           <div className="space-y-4">
             {data.houses.map((house, index) => (
               <div
-                key={house.name}
+                key={`${house.name}-${house.points}-${lastUpdate}`}
                 className="rounded-lg p-4 sm:p-6 text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl flex items-center backdrop-blur-sm bg-opacity-95"
                 style={{ backgroundColor: house.color }}
               >
@@ -120,7 +159,10 @@ export default function HousePoints({ initialData }: HousePointsProps) {
               <h2 className="text-lg sm:text-xl font-bold mb-4 dark:text-white">Latest Activity</h2>
               <div className="space-y-3">
                 {data.lastInputs.map((input, index) => (
-                  <div key={index} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs sm:text-sm">
+                  <div 
+                    key={`${input.house}-${input.points}-${input.timestamp}-${lastUpdate}`}
+                    className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs sm:text-sm"
+                  >
                     <span className="font-bold text-blue-600 dark:text-blue-400 w-12 sm:w-14">
                       +{input.points}
                     </span>
