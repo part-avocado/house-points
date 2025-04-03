@@ -10,7 +10,13 @@ export interface LastInput {
   points: number;
 }
 
+export interface TopContributor {
+  email: string;
+  points: number;
+}
+
 export interface HouseData {
   houses: House[];
   lastInputs: LastInput[];
+  topContributor: TopContributor;
 } 

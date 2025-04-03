@@ -57,7 +57,10 @@ function validateHouseData(data: any): data is HouseData {
       typeof input.timestamp === 'string' &&
       typeof input.house === 'string' &&
       typeof input.points === 'number'
-    )
+    ) &&
+    data.topContributor &&
+    typeof data.topContributor.email === 'string' &&
+    typeof data.topContributor.points === 'number'
   );
 }
 
@@ -112,7 +115,13 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       if (!document.fullscreenElement) {
         await document.documentElement.requestFullscreen();
         setIsFullscreen(true);
-        setShowMouse(false);
+        
+        // Add a delay before hiding the mouse cursor
+        setTimeout(() => {
+          if (isFullscreen) {
+            setShowMouse(false);
+          }
+        }, 1000); // 1 second delay
       } else {
         await document.exitFullscreen();
         setIsFullscreen(false);
@@ -121,7 +130,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     } catch (err) {
       console.error('Error toggling fullscreen:', err);
     }
-  }, []);
+  }, [isFullscreen]);
 
   useEffect(() => {
     // Initial fetch
@@ -200,6 +209,21 @@ export default function HousePoints({ initialData }: HousePointsProps) {
               <h2 className="text-lg sm:text-xl font-bold mb-2">Total Points Awarded</h2>
               <div className="text-4xl sm:text-6xl font-bold">{totalPoints}</div>
             </div>
+
+            {/* Top Contributor Card */}
+            {data.topContributor.email && (
+              <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm">
+                <h2 className="text-lg sm:text-xl font-bold mb-2">Top Contributor</h2>
+                <div className="flex items-center justify-between">
+                  <div className="text-lg sm:text-xl font-medium truncate">
+                    {data.topContributor.email}
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-bold">
+                    {data.topContributor.points}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Last Inputs Card */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm">
