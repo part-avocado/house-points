@@ -109,40 +109,38 @@ export async function getHouseData(): Promise<HouseData> {
       })
     );
 
-    // Process email data to find highest contributor
+    // Fetch email data to find top contributor
+    const emailData = emailDataRows.filter(row => row[0] && row[0].trim() !== '');
+    
+    // Process email data to find top contributors
     const emailContributions = new Map<string, number>();
     
-    emailDataRows.forEach(row => {
-      const email = row[0]; // Column B
-      const points = parseInt(row[2] || '0', 10); // Column D
+    emailData.forEach(row => {
+      const email = row[0].trim();
+      const points = parseInt(row[2] || '0', 10);
       
-      if (email && email.trim() !== '' && points > 0) {
+      if (!isNaN(points) && points > 0) {
         const currentPoints = emailContributions.get(email) || 0;
         emailContributions.set(email, currentPoints + points);
       }
     });
     
-    // Find the highest contributing email
-    let topContributor = { email: '', points: 0 };
-    emailContributions.forEach((points, email) => {
-      if (points > topContributor.points) {
-        topContributor = { email, points };
-      }
-    });
-    
-    // Truncate the email for display
-    const truncatedEmail = truncateEmail(topContributor.email);
+    // Convert to array and sort by points
+    const topContributors = Array.from(emailContributions.entries())
+      .map(([email, points]) => ({
+        email: truncateEmail(email),
+        points
+      }))
+      .sort((a, b) => b.points - a.points)
+      .slice(0, 5); // Get top 5 contributors
 
     return {
       houses: houses.sort((a, b) => b.points - a.points), // Sort by points in descending order
       lastInputs: lastInputsWithDetails,
-      topContributor: {
-        email: truncatedEmail,
-        points: topContributor.points
-      }
+      topContributors
     };
   } catch (error) {
     console.error('Error fetching house data:', error);
-    return { houses: [], lastInputs: [], topContributor: { email: '', points: 0 } };
+    return { houses: [], lastInputs: [], topContributors: [] };
   }
 } 

@@ -58,9 +58,11 @@ function validateHouseData(data: any): data is HouseData {
       typeof input.house === 'string' &&
       typeof input.points === 'number'
     ) &&
-    data.topContributor &&
-    typeof data.topContributor.email === 'string' &&
-    typeof data.topContributor.points === 'number'
+    Array.isArray(data.topContributors) &&
+    data.topContributors.every((contributor: any) =>
+      typeof contributor.email === 'string' &&
+      typeof contributor.points === 'number'
+    )
   );
 }
 
@@ -210,21 +212,6 @@ export default function HousePoints({ initialData }: HousePointsProps) {
               <div className="text-4xl sm:text-6xl font-bold">{totalPoints}</div>
             </div>
 
-            {/* Top Contributor Card */}
-            {data.topContributor.email && (
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm">
-                <h2 className="text-lg sm:text-xl font-bold mb-2">Top Contributor</h2>
-                <div className="flex items-center justify-between">
-                  <div className="text-lg sm:text-xl font-medium truncate">
-                    {data.topContributor.email}
-                  </div>
-                  <div className="text-2xl sm:text-3xl font-bold">
-                    {data.topContributor.points}
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Last Inputs Card */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm">
               <h2 className="text-lg sm:text-xl font-bold mb-4 dark:text-white">Latest Activity</h2>
@@ -247,6 +234,31 @@ export default function HousePoints({ initialData }: HousePointsProps) {
                 ))}
               </div>
             </div>
+
+            {/* Top Contributors Card */}
+            {data.topContributors.length > 0 && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm">
+                <h2 className="text-lg sm:text-xl font-bold mb-4 dark:text-white">Top Contributors</h2>
+                <div className="space-y-3">
+                  {data.topContributors.map((contributor, index) => (
+                    <div 
+                      key={`${contributor.email}-${contributor.points}-${lastUpdate}`}
+                      className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs sm:text-sm"
+                    >
+                      <span className="font-bold text-purple-600 dark:text-purple-400 w-6 sm:w-8">
+                        #{index + 1}
+                      </span>
+                      <span className="text-gray-600 dark:text-gray-300 truncate">
+                        {contributor.email}
+                      </span>
+                      <span className="text-gray-600 dark:text-gray-300 font-bold">
+                        {contributor.points}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

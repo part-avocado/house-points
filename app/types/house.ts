@@ -18,5 +18,5 @@ export interface TopContributor {
 export interface HouseData {
   houses: House[];
   lastInputs: LastInput[];
-  topContributor: TopContributor;
+  topContributors: TopContributor[];
 } 
