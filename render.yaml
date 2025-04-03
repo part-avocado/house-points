@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: points-dashboard
+    env: node
+    rootDir: .
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: GOOGLE_SHEETS_ID
+        sync: false
+      - key: GOOGLE_CLIENT_EMAIL
+        sync: false
+      - key: GOOGLE_PRIVATE_KEY
+        sync: false
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - package.json
+        - next.config.*
+        - app/**
+        - public/** 
