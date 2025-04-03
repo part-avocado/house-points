@@ -12,7 +12,7 @@ const HOUSE_POINTS_RANGES = [
   { name: 'Union Hill', range: 'I7' },
   { name: 'Chandler Hill', range: 'I8' },
 ];
-const LAST_INPUTS_RANGE = 'A2:D4';
+const LAST_INPUTS_RANGE = 'A2:A100'; // Read more rows to find last 3 non-empty
 
 function getHouseColor(house: string): string {
   const colors: { [key: string]: string } = {
@@ -57,7 +57,7 @@ export async function getHouseData(): Promise<HouseData> {
 
     const totalPoints = parseInt(totalPointsResponse.data.values?.[0]?.[0] || '0', 10);
     const housePointsValues = housePointsResponse.data.values || [];
-    const lastInputRows = lastInputsResponse.data.values;
+    const lastInputRows = lastInputsResponse.data.values || [];
 
     // Create houses array with points from the correct cells
     const houses: House[] = HOUSE_POINTS_RANGES.map((houseConfig, index) => ({
@@ -66,16 +66,37 @@ export async function getHouseData(): Promise<HouseData> {
       color: getHouseColor(houseConfig.name),
     }));
 
-    // Process last input data (A2:D4)
-    const lastInputs = lastInputRows?.map(row => ({
-      timestamp: row[0], // Column A
-      house: row[2], // Column C
-      points: parseInt(row[3], 10) || 0, // Column D
-    })) || [];
+    // Get last 3 non-empty timestamps from column A
+    const lastInputs = lastInputRows
+      .filter(row => row[0] && row[0].trim() !== '') // Filter out empty rows
+      .slice(-3) // Take last 3 rows
+      .map(row => ({
+        timestamp: row[0], // Column A
+        house: '', // We'll fill these in from the corresponding rows
+        points: 0, // We'll fill these in from the corresponding rows
+      }));
+
+    // For each timestamp, get the corresponding house and points
+    const lastInputsWithDetails = await Promise.all(
+      lastInputs.map(async (input, index) => {
+        const rowIndex = lastInputRows.findIndex(row => row[0] === input.timestamp) + 2; // +2 because rows are 1-indexed and we start from A2
+        const rowResponse = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `C${rowIndex}:D${rowIndex}`,
+        });
+        
+        const rowData = rowResponse.data.values?.[0] || [];
+        return {
+          ...input,
+          house: rowData[0] || '', // Column C
+          points: parseInt(rowData[1] || '0', 10), // Column D
+        };
+      })
+    );
 
     return {
       houses: houses.sort((a, b) => b.points - a.points), // Sort by points in descending order
-      lastInputs,
+      lastInputs: lastInputsWithDetails,
     };
   } catch (error) {
     console.error('Error fetching house data:', error);
