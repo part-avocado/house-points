@@ -66,10 +66,11 @@ export async function getHouseData(): Promise<HouseData> {
       color: getHouseColor(houseConfig.name),
     }));
 
-    // Get last 3 non-empty timestamps from column A
+    // Get last 3 non-empty timestamps from column A and reverse the order
     const lastInputs = lastInputRows
       .filter(row => row[0] && row[0].trim() !== '') // Filter out empty rows
       .slice(-3) // Take last 3 rows
+      .reverse() // Reverse to get newest first
       .map(row => ({
         timestamp: row[0], // Column A
         house: '', // We'll fill these in from the corresponding rows
