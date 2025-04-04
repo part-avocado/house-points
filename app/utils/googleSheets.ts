@@ -109,20 +109,31 @@ export async function getHouseData(): Promise<HouseData> {
       })
     );
 
-    // Fetch email data to find top contributor
-    const emailData = emailDataRows.filter(row => row[0] && row[0].trim() !== '');
+    // Debug logging
+    console.log('Email data rows:', {
+      totalRows: emailDataRows.length,
+      sampleRows: emailDataRows.slice(0, 3)
+    });
     
     // Process email data to find top contributors
     const emailContributions = new Map<string, number>();
     
-    emailData.forEach(row => {
-      const email = row[0].trim();
-      const points = parseInt(row[2] || '0', 10);
-      
-      if (!isNaN(points) && points > 0) {
-        const currentPoints = emailContributions.get(email) || 0;
-        emailContributions.set(email, currentPoints + points);
+    emailDataRows.forEach(row => {
+      if (row[0] && row[0].trim() !== '') {
+        const email = row[0].trim();
+        const points = parseInt(row[2] || '0', 10);
+        
+        if (!isNaN(points) && points > 0) {
+          const currentPoints = emailContributions.get(email) || 0;
+          emailContributions.set(email, currentPoints + points);
+        }
       }
+    });
+    
+    // Debug logging
+    console.log('Email contributions:', {
+      totalContributors: emailContributions.size,
+      sampleContributions: Array.from(emailContributions.entries()).slice(0, 3)
     });
     
     // Convert to array and sort by points
@@ -133,6 +144,9 @@ export async function getHouseData(): Promise<HouseData> {
       }))
       .sort((a, b) => b.points - a.points)
       .slice(0, 5); // Get top 5 contributors
+
+    // Debug logging
+    console.log('Top contributors:', topContributors);
 
     return {
       houses: houses.sort((a, b) => b.points - a.points), // Sort by points in descending order

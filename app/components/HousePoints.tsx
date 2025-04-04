@@ -92,6 +92,12 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       
       const newData = await response.json();
       
+      // Debug logging
+      console.log('Fetched data:', {
+        topContributorsLength: newData.topContributors?.length,
+        topContributors: newData.topContributors
+      });
+      
       // Validate the data structure
       if (!validateHouseData(newData)) {
         throw new Error('Invalid data structure received');
