@@ -65,7 +65,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   const [data, setData] = useState<HouseData>(initialData);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [nextRefresh, setNextRefresh] = useState(15);
+  const [nextRefresh, setNextRefresh] = useState(30);
   const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMouse, setShowMouse] = useState(true);
@@ -83,30 +83,64 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         },
       });
       
-      if (!response.ok) throw new Error('Failed to fetch data');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
       const newData = await response.json();
       
-      // Validate the data structure
-      if (!validateHouseData(newData)) {
-        throw new Error('Invalid data structure received');
+      // Basic structure validation
+      if (!newData || typeof newData !== 'object') {
+        throw new Error('Invalid response format');
       }
-      
-      // Only update if the data has changed and is valid
-      if (JSON.stringify(newData) !== JSON.stringify(data) && 
-          newData.houses.length > 0) {
+
+      // Validate houses array - required
+      if (!Array.isArray(newData.houses)) {
+        throw new Error('Houses data is missing or invalid');
+      }
+
+      // Ensure houses have required properties
+      const validHouses = newData.houses.every((house: any) => 
+        house && 
+        typeof house.name === 'string' && 
+        typeof house.points === 'number' && 
+        typeof house.color === 'string'
+      );
+
+      if (!validHouses) {
+        throw new Error('Invalid house data structure');
+      }
+
+      // Validate lastInputs - use empty array if missing or invalid
+      if (!Array.isArray(newData.lastInputs)) {
+        console.warn('Last inputs missing or invalid, using empty array');
+        newData.lastInputs = [];
+      }
+
+      // Validate topContributors - use empty array if missing or invalid
+      if (!Array.isArray(newData.topContributors)) {
+        console.warn('Top contributors missing or invalid, using empty array');
+        newData.topContributors = [];
+      }
+
+      // Only update state if we have valid houses
+      if (newData.houses.length > 0) {
         setData(newData);
         setLastUpdate(Date.now());
+        setNextRefresh(30);
+        setError(null);
+      } else {
+        throw new Error('No house data available');
       }
-      
-      setNextRefresh(15);
     } catch (err) {
       console.error('Error fetching house data:', err);
+      // Keep existing data and show error
       setError('Failed to load data. Retrying...');
+      setNextRefresh(3); // Retry sooner on error
     } finally {
       setIsLoading(false);
     }
-  }, [data]);
+  }, []); // Remove data dependency to prevent unnecessary re-renders
 
   const toggleFullscreen = useCallback(async () => {
     try {
@@ -137,9 +171,9 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     fetchData();
 
     // Set up intervals
-    const refreshInterval = setInterval(fetchData, 15000);
+    const refreshInterval = setInterval(fetchData, 30000);
     const countdownInterval = setInterval(() => {
-      setNextRefresh(prev => prev > 0 ? prev - 1 : 15);
+      setNextRefresh(prev => prev > 0 ? prev - 1 : 30);
     }, 1000);
 
     // Handle fullscreen keyboard shortcut
