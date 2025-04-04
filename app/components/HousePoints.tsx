@@ -95,13 +95,15 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       
       // Validate the data structure
       if (!validateHouseData(newData)) {
-        console.error('Invalid data structure:', newData);
         throw new Error('Invalid data structure received');
       }
-
-      // Always update the data if validation passes
-      setData(newData);
-      setLastUpdate(Date.now());
+      
+      // Only update if the data has changed
+      if (JSON.stringify(newData) !== JSON.stringify(data)) {
+        setData(newData);
+        setLastUpdate(Date.now());
+      }
+      
       setNextRefresh(15);
     } catch (err) {
       console.error('Error fetching house data:', err);
@@ -109,20 +111,14 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [data]);
 
   const toggleFullscreen = useCallback(async () => {
     try {
       if (!document.fullscreenElement) {
         await document.documentElement.requestFullscreen();
         setIsFullscreen(true);
-        
-        // Add a delay before hiding the mouse cursor
-        setTimeout(() => {
-          if (document.fullscreenElement) {
-            setShowMouse(false);
-          }
-        }, 1000);
+        setShowMouse(false);
       } else {
         await document.exitFullscreen();
         setIsFullscreen(false);
@@ -130,8 +126,6 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       }
     } catch (err) {
       console.error('Error toggling fullscreen:', err);
-      setIsFullscreen(false);
-      setShowMouse(true);
     }
   }, []);
 
@@ -159,7 +153,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         setShowMouse(true);
         // Hide mouse after 3 seconds of inactivity
         const timeout = setTimeout(() => {
-          if (document.fullscreenElement) {
+          if (isFullscreen) {
             setShowMouse(false);
           }
         }, 3000);
@@ -167,18 +161,8 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       }
     };
 
-    // Handle fullscreen change
-    const handleFullscreenChange = () => {
-      const isInFullscreen = !!document.fullscreenElement;
-      setIsFullscreen(isInFullscreen);
-      setShowMouse(!isInFullscreen);
-      // Ensure data is refreshed when fullscreen state changes
-      fetchData();
-    };
-
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     // Cleanup
     return () => {
@@ -186,12 +170,26 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       clearInterval(countdownInterval);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, [fetchData, toggleFullscreen, isFullscreen]);
 
   // Calculate total points
   const totalPoints = data.houses.reduce((sum, house) => sum + house.points, 0);
+
+  // Track previous positions to detect changes
+  const [previousPositions, setPreviousPositions] = useState<{[key: string]: number}>({});
+  
+  useEffect(() => {
+    // Update previous positions after animation completes
+    const timer = setTimeout(() => {
+      const newPositions = Object.fromEntries(
+        data.houses.map((house, index) => [house.name, index])
+      );
+      setPreviousPositions(newPositions);
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, [data.houses]);
 
   return (
     <div 
@@ -201,19 +199,46 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 sm:gap-8">
           {/* Left Column - Rankings */}
           <div className="space-y-4">
-            {data.houses.map((house, index) => (
-              <div
-                key={`${house.name}-${house.points}-${lastUpdate}`}
-                className="rounded-lg p-4 sm:p-6 text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl flex items-center backdrop-blur-sm bg-opacity-95"
-                style={{ backgroundColor: house.color }}
-              >
-                <div className="text-3xl sm:text-4xl font-bold mr-4 sm:mr-6 w-10 sm:w-12">#{index + 1}</div>
-                <div className="flex-grow">
-                  <h3 className="text-xl sm:text-2xl font-bold">{house.name}</h3>
+            {data.houses.map((house, index) => {
+              const previousPosition = previousPositions[house.name] ?? index;
+              const hasMovedUp = previousPosition > index;
+              const hasMovedDown = previousPosition < index;
+              const hasChanged = hasMovedUp || hasMovedDown;
+              
+              return (
+                <div
+                  key={`${house.name}-${house.points}-${lastUpdate}`}
+                  className={`
+                    rounded-lg p-4 sm:p-6 text-white shadow-lg flex items-center backdrop-blur-sm bg-opacity-95
+                    transform transition-all duration-1000 ease-in-out
+                    ${hasChanged ? 'scale-105' : 'hover:scale-105'}
+                    ${hasMovedUp ? 'animate-highlight-up' : ''}
+                    ${hasMovedDown ? 'animate-highlight-down' : ''}
+                  `}
+                  style={{ 
+                    backgroundColor: house.color,
+                  }}
+                >
+                  <div className={`
+                    text-3xl sm:text-4xl font-bold mr-4 sm:mr-6 w-10 sm:w-12
+                    transition-all duration-500
+                    ${hasChanged ? 'scale-110 animate-bounce' : ''}
+                  `}>
+                    #{index + 1}
+                  </div>
+                  <div className="flex-grow">
+                    <h3 className="text-xl sm:text-2xl font-bold">{house.name}</h3>
+                  </div>
+                  <div className={`
+                    text-3xl sm:text-4xl font-bold
+                    transition-all duration-500
+                    ${hasChanged ? 'scale-110' : ''}
+                  `}>
+                    {house.points}
+                  </div>
                 </div>
-                <div className="text-3xl sm:text-4xl font-bold">{house.points}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Right Column - Stats */}
@@ -285,13 +310,13 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         </div>
 
         {/* Message and Refresh Timer - Centered at bottom */}
-        <div className="absolute bottom-8 sm:bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
+        <div className="absolute bottom-8 sm:bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
           {data.message && (
             <div className="text-xl sm:text-2xl font-medium text-gray-700 dark:text-gray-300 text-center">
               {data.message}
             </div>
           )}
-          <div className="absolute bottom-2 sm:bottom-4 text-xs text-gray-500 dark:text-gray-400">
+          <div className="text-xs text-gray-500 dark:text-gray-400">
             {isLoading ? 'Refreshing...' : `Next refresh in ${nextRefresh}s`}
             {error && <span className="text-red-500 ml-2">{error}</span>}
           </div>
