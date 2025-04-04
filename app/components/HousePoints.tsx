@@ -268,13 +268,13 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         </div>
 
         {/* Message and Refresh Timer - Centered at bottom */}
-        <div className="absolute bottom-8 sm:bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+        <div className="absolute bottom-8 sm:bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
           {data.message && (
             <div className="text-xl sm:text-2xl font-medium text-gray-700 dark:text-gray-300 text-center">
               {data.message}
             </div>
           )}
-          <div className="text-xs text-gray-500 dark:text-gray-400">
+          <div className="absolute bottom-2 sm:bottom-4 text-xs text-gray-500 dark:text-gray-400">
             {isLoading ? 'Refreshing...' : `Next refresh in ${nextRefresh}s`}
             {error && <span className="text-red-500 ml-2">{error}</span>}
           </div>
