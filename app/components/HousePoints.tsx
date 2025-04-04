@@ -44,27 +44,39 @@ function formatTimeAgo(timestamp: string) {
 }
 
 function validateHouseData(data: any): data is HouseData {
-  return (
-    data &&
-    Array.isArray(data.houses) &&
+  // Basic structure check
+  if (!data || typeof data !== 'object') return false;
+
+  // Houses validation
+  const hasValidHouses = Array.isArray(data.houses) &&
     data.houses.every((house: any) =>
       typeof house.name === 'string' &&
       typeof house.points === 'number' &&
       typeof house.color === 'string'
-    ) &&
-    Array.isArray(data.lastInputs) &&
+    );
+  if (!hasValidHouses) return false;
+
+  // Last inputs validation
+  const hasValidLastInputs = Array.isArray(data.lastInputs) &&
     data.lastInputs.every((input: any) =>
       typeof input.timestamp === 'string' &&
       typeof input.house === 'string' &&
       typeof input.points === 'number'
-    ) &&
-    Array.isArray(data.topContributors) &&
+    );
+  if (!hasValidLastInputs) return false;
+
+  // Top contributors validation - allow empty array or valid contributors
+  const hasValidTopContributors = Array.isArray(data.topContributors) &&
     data.topContributors.every((contributor: any) =>
       typeof contributor.email === 'string' &&
       typeof contributor.points === 'number'
-    ) &&
-    typeof data.message === 'string'
-  );
+    );
+  if (!hasValidTopContributors) return false;
+
+  // Message validation - optional but must be string if present
+  if (data.message !== undefined && typeof data.message !== 'string') return false;
+
+  return true;
 }
 
 export default function HousePoints({ initialData }: HousePointsProps) {
