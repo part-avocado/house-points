@@ -57,7 +57,13 @@ function validateHouseData(data: any): data is HouseData {
       typeof input.timestamp === 'string' &&
       typeof input.house === 'string' &&
       typeof input.points === 'number'
-    )
+    ) &&
+    Array.isArray(data.topContributors) &&
+    data.topContributors.every((contributor: any) =>
+      typeof contributor.email === 'string' &&
+      typeof contributor.points === 'number'
+    ) &&
+    typeof data.message === 'string'
   );
 }
 
@@ -218,6 +224,29 @@ export default function HousePoints({ initialData }: HousePointsProps) {
                     </span>
                     <span className="text-gray-400 dark:text-gray-500 text-right">
                       {formatTimeAgo(input.timestamp)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Top Contributors Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm">
+              <h2 className="text-lg sm:text-xl font-bold mb-4 dark:text-white">Top Contributors</h2>
+              <div className="space-y-3">
+                {data.topContributors.map((contributor, index) => (
+                  <div 
+                    key={`${contributor.email}-${contributor.points}-${lastUpdate}`}
+                    className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs sm:text-sm"
+                  >
+                    <span className="font-bold text-purple-600 dark:text-purple-400 w-6 sm:w-8">
+                      #{index + 1}
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-300 truncate">
+                      {contributor.email}
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-300 font-bold">
+                      {contributor.points}
                     </span>
                   </div>
                 ))}
