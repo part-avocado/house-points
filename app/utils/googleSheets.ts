@@ -3,6 +3,7 @@ import { House, HouseData } from '../types/house';
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID || '';
 const TOTAL_POINTS_RANGE = 'G2';
+const MESSAGE_RANGE = 'H21'; // Add message range
 const HOUSE_POINTS_RANGES = [
   { name: 'Newton Hill', range: 'I2' },
   { name: 'Green Hill', range: 'I3' },
@@ -41,7 +42,7 @@ export async function getHouseData(): Promise<HouseData> {
     const sheets = google.sheets({ version: 'v4', auth });
     
     // Get all data in parallel
-    const [totalPointsResponse, housePointsResponse, lastInputsResponse, contributorsResponse] = await Promise.all([
+    const [totalPointsResponse, housePointsResponse, lastInputsResponse, contributorsResponse, messageResponse] = await Promise.all([
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
         range: TOTAL_POINTS_RANGE,
@@ -57,6 +58,10 @@ export async function getHouseData(): Promise<HouseData> {
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
         range: CONTRIBUTORS_RANGE,
+      }),
+      sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: MESSAGE_RANGE,
       }),
     ]);
 
@@ -123,13 +128,17 @@ export async function getHouseData(): Promise<HouseData> {
       .sort((a, b) => b.points - a.points)
       .slice(0, 5); // Get top 5 contributors
 
+    // Get message from H21
+    const message = messageResponse.data.values?.[0]?.[0];
+
     return {
       houses: houses.sort((a, b) => b.points - a.points), // Sort by points in descending order
       lastInputs: lastInputsWithDetails,
-      topContributors
+      topContributors,
+      message: message || undefined // Only include message if it exists
     };
   } catch (error) {
     console.error('Error fetching house data:', error);
-    return { houses: [], lastInputs: [], topContributors: [] };
+    return { houses: [], lastInputs: [], topContributors: [], message: undefined };
   }
 } 

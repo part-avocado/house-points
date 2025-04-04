@@ -141,6 +141,15 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         newData.topContributors = [];
       }
 
+      // Validate message - ensure it's a string if present
+      if (newData.message !== undefined && typeof newData.message !== 'string') {
+        console.warn('Message is present but not a string, removing invalid message');
+        delete newData.message;
+      }
+
+      // Log the message for debugging
+      console.log('Message from API:', newData.message);
+
       // Only update state if we have valid houses
       if (newData.houses.length > 0) {
         setData(newData);
