@@ -19,4 +19,5 @@ export interface HouseData {
   houses: House[];
   lastInputs: LastInput[];
   topContributors: TopContributor[];
+  message?: string; // Optional message field
 } 

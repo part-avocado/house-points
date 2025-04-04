@@ -44,21 +44,39 @@ function formatTimeAgo(timestamp: string) {
 }
 
 function validateHouseData(data: any): data is HouseData {
-  return (
-    data &&
-    Array.isArray(data.houses) &&
+  // Basic structure check
+  if (!data || typeof data !== 'object') return false;
+
+  // Houses validation - required
+  const hasValidHouses = Array.isArray(data.houses) &&
     data.houses.every((house: any) =>
       typeof house.name === 'string' &&
       typeof house.points === 'number' &&
       typeof house.color === 'string'
-    ) &&
-    Array.isArray(data.lastInputs) &&
+    );
+  if (!hasValidHouses) return false;
+
+  // Last inputs validation - required
+  const hasValidLastInputs = Array.isArray(data.lastInputs) &&
     data.lastInputs.every((input: any) =>
       typeof input.timestamp === 'string' &&
       typeof input.house === 'string' &&
       typeof input.points === 'number'
-    )
-  );
+    );
+  if (!hasValidLastInputs) return false;
+
+  // Top contributors validation - required
+  const hasValidTopContributors = Array.isArray(data.topContributors) &&
+    data.topContributors.every((contributor: any) =>
+      typeof contributor.email === 'string' &&
+      typeof contributor.points === 'number'
+    );
+  if (!hasValidTopContributors) return false;
+
+  // Message validation - optional but must be string if present
+  if (data.message !== undefined && typeof data.message !== 'string') return false;
+
+  return true;
 }
 
 export default function HousePoints({ initialData }: HousePointsProps) {
@@ -313,10 +331,17 @@ export default function HousePoints({ initialData }: HousePointsProps) {
           />
         </div>
 
-        {/* Refresh Timer - Centered at bottom */}
-        <div className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 text-xs text-gray-500 dark:text-gray-400">
-          {isLoading ? 'Refreshing...' : `Next refresh in ${nextRefresh}s`}
-          {error && <span className="text-red-500 ml-2">{error}</span>}
+        {/* Message and Refresh Timer - Centered at bottom */}
+        <div className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+          {data.message && (
+            <div className="text-xl sm:text-2xl font-medium text-center text-gray-700 dark:text-gray-200">
+              {data.message}
+            </div>
+          )}
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {isLoading ? 'Refreshing...' : `Next refresh in ${nextRefresh}s`}
+            {error && <span className="text-red-500 ml-2">{error}</span>}
+          </div>
         </div>
       </div>
     </div>
