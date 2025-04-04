@@ -3,7 +3,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { House, HouseData } from '../types/house';
 import Image from 'next/image';
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
+<SpeedInsights/>
 interface HousePointsProps {
   initialData: HouseData;
 }
@@ -356,3 +358,4 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     </div>
   );
 } 
+<SpeedInsights/>
