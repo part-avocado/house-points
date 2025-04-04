@@ -92,8 +92,9 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         throw new Error('Invalid data structure received');
       }
       
-      // Only update if the data has changed
-      if (JSON.stringify(newData) !== JSON.stringify(data)) {
+      // Only update if the data has changed and is valid
+      if (JSON.stringify(newData) !== JSON.stringify(data) && 
+          newData.houses.length > 0) {
         setData(newData);
         setLastUpdate(Date.now());
       }
@@ -115,21 +116,21 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         
         // Add a delay before hiding the mouse cursor
         setTimeout(() => {
-          if (document.fullscreenElement) { // Check if still in fullscreen
+          if (document.fullscreenElement) {
             setShowMouse(false);
           }
-        }, 1000); // 1 second delay
+        }, 1000);
       } else {
         await document.exitFullscreen();
         setIsFullscreen(false);
         setShowMouse(true);
-        // Ensure data is refreshed after exiting fullscreen
-        fetchData();
       }
     } catch (err) {
       console.error('Error toggling fullscreen:', err);
+      setIsFullscreen(false);
+      setShowMouse(true);
     }
-  }, [fetchData]);
+  }, []);
 
   useEffect(() => {
     // Initial fetch
@@ -155,7 +156,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         setShowMouse(true);
         // Hide mouse after 3 seconds of inactivity
         const timeout = setTimeout(() => {
-          if (document.fullscreenElement) { // Check if still in fullscreen
+          if (document.fullscreenElement) {
             setShowMouse(false);
           }
         }, 3000);
@@ -165,11 +166,9 @@ export default function HousePoints({ initialData }: HousePointsProps) {
 
     // Handle fullscreen change
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
-        setIsFullscreen(false);
-        setShowMouse(true);
-        fetchData(); // Refresh data when exiting fullscreen
-      }
+      const isInFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(isInFullscreen);
+      setShowMouse(!isInFullscreen);
     };
 
     window.addEventListener('keydown', handleKeyDown);
