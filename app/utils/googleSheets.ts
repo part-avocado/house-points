@@ -68,10 +68,27 @@ export async function getHouseData(): Promise<HouseData> {
       }),
     ]);
 
+    // Debug raw response
+    console.log('Raw email data response:', {
+      status: emailDataResponse.status,
+      data: emailDataResponse.data,
+      values: emailDataResponse.data.values,
+    });
+
     const totalPoints = parseInt(totalPointsResponse.data.values?.[0]?.[0] || '0', 10);
     const housePointsValues = housePointsResponse.data.values || [];
     const lastInputRows = lastInputsResponse.data.values || [];
     const emailDataRows = emailDataResponse.data.values || [];
+
+    // Debug email data rows
+    console.log('Email data rows structure:', {
+      length: emailDataRows.length,
+      firstFewRows: emailDataRows.slice(0, 5).map(row => ({
+        rawRow: row,
+        email: row[0],
+        points: row[2]
+      }))
+    });
 
     // Create houses array with points from the correct cells
     const houses: House[] = HOUSE_POINTS_RANGES.map((houseConfig, index) => ({
