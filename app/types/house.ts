@@ -10,7 +10,13 @@ export interface LastInput {
   points: number;
 }
 
+export interface TopContributor {
+  email: string; // This will actually contain the name from Column L
+  points: number;
+}
+
 export interface HouseData {
   houses: House[];
   lastInputs: LastInput[];
+  topContributors: TopContributor[];
 } 
