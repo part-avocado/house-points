@@ -92,8 +92,9 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         throw new Error('Invalid data structure received');
       }
       
-      // Only update if the data has changed
-      if (JSON.stringify(newData) !== JSON.stringify(data)) {
+      // Only update if the data has changed and is valid
+      if (JSON.stringify(newData) !== JSON.stringify(data) && 
+          newData.houses.length > 0) {
         setData(newData);
         setLastUpdate(Date.now());
       }
@@ -112,7 +113,13 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       if (!document.fullscreenElement) {
         await document.documentElement.requestFullscreen();
         setIsFullscreen(true);
-        setShowMouse(false);
+        
+        // Add a delay before hiding the mouse cursor
+        setTimeout(() => {
+          if (document.fullscreenElement) {
+            setShowMouse(false);
+          }
+        }, 1000);
       } else {
         await document.exitFullscreen();
         setIsFullscreen(false);
@@ -120,6 +127,8 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       }
     } catch (err) {
       console.error('Error toggling fullscreen:', err);
+      setIsFullscreen(false);
+      setShowMouse(true);
     }
   }, []);
 
@@ -147,7 +156,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         setShowMouse(true);
         // Hide mouse after 3 seconds of inactivity
         const timeout = setTimeout(() => {
-          if (isFullscreen) {
+          if (document.fullscreenElement) {
             setShowMouse(false);
           }
         }, 3000);
@@ -155,8 +164,16 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       }
     };
 
+    // Handle fullscreen change
+    const handleFullscreenChange = () => {
+      const isInFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(isInFullscreen);
+      setShowMouse(!isInFullscreen);
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     // Cleanup
     return () => {
@@ -164,6 +181,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       clearInterval(countdownInterval);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, [fetchData, toggleFullscreen, isFullscreen]);
 
@@ -218,6 +236,29 @@ export default function HousePoints({ initialData }: HousePointsProps) {
                     </span>
                     <span className="text-gray-400 dark:text-gray-500 text-right">
                       {formatTimeAgo(input.timestamp)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Top Contributors Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm">
+              <h2 className="text-lg sm:text-xl font-bold mb-4 dark:text-white">Top Contributors</h2>
+              <div className="space-y-3">
+                {data.topContributors.map((contributor, index) => (
+                  <div 
+                    key={`${contributor.email}-${contributor.points}-${lastUpdate}`}
+                    className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs sm:text-sm"
+                  >
+                    <span className="font-bold text-purple-600 dark:text-purple-400 w-6 sm:w-8">
+                      #{index + 1}
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-300 truncate">
+                      {contributor.email}
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-300 font-bold">
+                      {contributor.points}
                     </span>
                   </div>
                 ))}

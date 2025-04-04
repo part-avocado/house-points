@@ -13,6 +13,7 @@ const HOUSE_POINTS_RANGES = [
   { name: 'Chandler Hill', range: 'I8' },
 ];
 const LAST_INPUTS_RANGE = 'A2:A100'; // Read more rows to find last 3 non-empty
+const CONTRIBUTORS_RANGE = 'L2:M100'; // Read contributor names and points from columns L and M
 
 function getHouseColor(house: string): string {
   const colors: { [key: string]: string } = {
@@ -40,7 +41,7 @@ export async function getHouseData(): Promise<HouseData> {
     const sheets = google.sheets({ version: 'v4', auth });
     
     // Get all data in parallel
-    const [totalPointsResponse, housePointsResponse, lastInputsResponse] = await Promise.all([
+    const [totalPointsResponse, housePointsResponse, lastInputsResponse, contributorsResponse] = await Promise.all([
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
         range: TOTAL_POINTS_RANGE,
@@ -53,11 +54,16 @@ export async function getHouseData(): Promise<HouseData> {
         spreadsheetId: SPREADSHEET_ID,
         range: LAST_INPUTS_RANGE,
       }),
+      sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: CONTRIBUTORS_RANGE,
+      }),
     ]);
 
     const totalPoints = parseInt(totalPointsResponse.data.values?.[0]?.[0] || '0', 10);
     const housePointsValues = housePointsResponse.data.values || [];
     const lastInputRows = lastInputsResponse.data.values || [];
+    const contributorRows = contributorsResponse.data.values || [];
 
     // Create houses array with points from the correct cells
     const houses: House[] = HOUSE_POINTS_RANGES.map((houseConfig, index) => ({
@@ -95,12 +101,35 @@ export async function getHouseData(): Promise<HouseData> {
       })
     );
 
+    // Process contributor data
+    const contributorPoints = new Map<string, number>();
+    
+    contributorRows.forEach(row => {
+      const name = row[0]; // Column L (first column in our range)
+      const points = parseInt(row[1] || '0', 10); // Column M (second column in our range)
+      
+      if (name && name.trim() !== '' && !isNaN(points) && points > 0) {
+        const currentPoints = contributorPoints.get(name) || 0;
+        contributorPoints.set(name, currentPoints + points);
+      }
+    });
+    
+    // Convert to array and sort by points
+    const topContributors = Array.from(contributorPoints.entries())
+      .map(([name, points]) => ({
+        email: name, // Using the name field instead of email
+        points
+      }))
+      .sort((a, b) => b.points - a.points)
+      .slice(0, 5); // Get top 5 contributors
+
     return {
       houses: houses.sort((a, b) => b.points - a.points), // Sort by points in descending order
       lastInputs: lastInputsWithDetails,
+      topContributors
     };
   } catch (error) {
     console.error('Error fetching house data:', error);
-    return { houses: [], lastInputs: [] };
+    return { houses: [], lastInputs: [], topContributors: [] };
   }
 } 
