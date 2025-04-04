@@ -13,7 +13,7 @@ const HOUSE_POINTS_RANGES = [
   { name: 'Chandler Hill', range: 'I8' },
 ];
 const LAST_INPUTS_RANGE = 'A2:A100'; // Read more rows to find last 3 non-empty
-const EMAIL_DATA_RANGE = 'B2:D100'; // Read email data from columns B, C, D
+const EMAIL_DATA_RANGE = 'B2:D100'; // Read email data from columns B (email) and D (points)
 
 function getHouseColor(house: string): string {
   const colors: { [key: string]: string } = {
@@ -68,27 +68,10 @@ export async function getHouseData(): Promise<HouseData> {
       }),
     ]);
 
-    // Debug raw response
-    console.log('Raw email data response:', {
-      status: emailDataResponse.status,
-      data: emailDataResponse.data,
-      values: emailDataResponse.data.values,
-    });
-
     const totalPoints = parseInt(totalPointsResponse.data.values?.[0]?.[0] || '0', 10);
     const housePointsValues = housePointsResponse.data.values || [];
     const lastInputRows = lastInputsResponse.data.values || [];
     const emailDataRows = emailDataResponse.data.values || [];
-
-    // Debug email data rows
-    console.log('Email data rows structure:', {
-      length: emailDataRows.length,
-      firstFewRows: emailDataRows.slice(0, 5).map(row => ({
-        rawRow: row,
-        email: row[0],
-        points: row[2]
-      }))
-    });
 
     // Create houses array with points from the correct cells
     const houses: House[] = HOUSE_POINTS_RANGES.map((houseConfig, index) => ({
@@ -125,32 +108,18 @@ export async function getHouseData(): Promise<HouseData> {
         };
       })
     );
-
-    // Debug logging
-    console.log('Email data rows:', {
-      totalRows: emailDataRows.length,
-      sampleRows: emailDataRows.slice(0, 3)
-    });
     
     // Process email data to find top contributors
     const emailContributions = new Map<string, number>();
     
     emailDataRows.forEach(row => {
-      if (row[0] && row[0].trim() !== '') {
-        const email = row[0].trim();
-        const points = parseInt(row[2] || '0', 10);
-        
-        if (!isNaN(points) && points > 0) {
-          const currentPoints = emailContributions.get(email) || 0;
-          emailContributions.set(email, currentPoints + points);
-        }
+      const email = row[1]; // Column B (second column, index 1)
+      const points = parseInt(row[3] || '0', 10); // Column D (fourth column, index 3)
+      
+      if (email && email.trim() !== '' && !isNaN(points) && points > 0) {
+        const currentPoints = emailContributions.get(email) || 0;
+        emailContributions.set(email, currentPoints + points);
       }
-    });
-    
-    // Debug logging
-    console.log('Email contributions:', {
-      totalContributors: emailContributions.size,
-      sampleContributions: Array.from(emailContributions.entries()).slice(0, 3)
     });
     
     // Convert to array and sort by points
@@ -161,9 +130,6 @@ export async function getHouseData(): Promise<HouseData> {
       }))
       .sort((a, b) => b.points - a.points)
       .slice(0, 5); // Get top 5 contributors
-
-    // Debug logging
-    console.log('Top contributors:', topContributors);
 
     return {
       houses: houses.sort((a, b) => b.points - a.points), // Sort by points in descending order
