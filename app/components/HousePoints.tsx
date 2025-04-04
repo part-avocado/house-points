@@ -95,15 +95,13 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       
       // Validate the data structure
       if (!validateHouseData(newData)) {
+        console.error('Invalid data structure:', newData);
         throw new Error('Invalid data structure received');
       }
-      
-      // Only update if the data has changed
-      if (JSON.stringify(newData) !== JSON.stringify(data)) {
-        setData(newData);
-        setLastUpdate(Date.now());
-      }
-      
+
+      // Always update the data if validation passes
+      setData(newData);
+      setLastUpdate(Date.now());
       setNextRefresh(15);
     } catch (err) {
       console.error('Error fetching house data:', err);
@@ -111,14 +109,20 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [data]);
+  }, []);
 
   const toggleFullscreen = useCallback(async () => {
     try {
       if (!document.fullscreenElement) {
         await document.documentElement.requestFullscreen();
         setIsFullscreen(true);
-        setShowMouse(false);
+        
+        // Add a delay before hiding the mouse cursor
+        setTimeout(() => {
+          if (document.fullscreenElement) {
+            setShowMouse(false);
+          }
+        }, 1000);
       } else {
         await document.exitFullscreen();
         setIsFullscreen(false);
@@ -126,6 +130,8 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       }
     } catch (err) {
       console.error('Error toggling fullscreen:', err);
+      setIsFullscreen(false);
+      setShowMouse(true);
     }
   }, []);
 
@@ -153,7 +159,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         setShowMouse(true);
         // Hide mouse after 3 seconds of inactivity
         const timeout = setTimeout(() => {
-          if (isFullscreen) {
+          if (document.fullscreenElement) {
             setShowMouse(false);
           }
         }, 3000);
@@ -161,8 +167,18 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       }
     };
 
+    // Handle fullscreen change
+    const handleFullscreenChange = () => {
+      const isInFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(isInFullscreen);
+      setShowMouse(!isInFullscreen);
+      // Ensure data is refreshed when fullscreen state changes
+      fetchData();
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     // Cleanup
     return () => {
@@ -170,6 +186,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       clearInterval(countdownInterval);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, [fetchData, toggleFullscreen, isFullscreen]);
 
