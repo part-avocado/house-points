@@ -93,25 +93,25 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       
       const newData = await response.json();
       
-      // Validate the data structure
-      if (!validateHouseData(newData)) {
+      // Validate the data structure and ensure we have houses
+      if (!validateHouseData(newData) || newData.houses.length === 0) {
+        console.error('Invalid or empty data received:', newData);
         throw new Error('Invalid data structure received');
       }
       
-      // Only update if the data has changed
-      if (JSON.stringify(newData) !== JSON.stringify(data)) {
-        setData(newData);
-        setLastUpdate(Date.now());
-      }
-      
+      // Only update if we have valid data
+      setData(newData);
+      setLastUpdate(Date.now());
       setNextRefresh(15);
     } catch (err) {
       console.error('Error fetching house data:', err);
       setError('Failed to load data. Retrying...');
+      // Keep the previous data on error
+      setNextRefresh(5); // Retry sooner on error
     } finally {
       setIsLoading(false);
     }
-  }, [data]);
+  }, []); // Remove data from dependencies to prevent unnecessary re-renders
 
   const toggleFullscreen = useCallback(async () => {
     try {
@@ -136,7 +136,13 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     // Set up intervals
     const refreshInterval = setInterval(fetchData, 15000);
     const countdownInterval = setInterval(() => {
-      setNextRefresh(prev => prev > 0 ? prev - 1 : 15);
+      setNextRefresh(prev => {
+        if (prev <= 0) {
+          fetchData(); // Ensure we fetch when countdown reaches 0
+          return 15;
+        }
+        return prev - 1;
+      });
     }, 1000);
 
     // Handle fullscreen keyboard shortcut
