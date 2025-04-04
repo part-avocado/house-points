@@ -107,12 +107,17 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       if (!validateHouseData(newData)) {
         throw new Error('Invalid data structure');
       }
-      
-      // Only update state if we have valid data
-      setData(newData);
-      setLastUpdate(Date.now());
-      setNextRefresh(15);
-      setError(null); // Clear any previous errors
+
+      // Only update if the data has changed
+      if (JSON.stringify(newData) !== JSON.stringify(data)) {
+        setData(newData);
+        setLastUpdate(Date.now());
+        setNextRefresh(15);
+        setError(null); // Clear any previous errors
+      } else {
+        // Even if data hasn't changed, reset the refresh timer
+        setNextRefresh(15);
+      }
     } catch (err) {
       console.error('Error fetching house data:', err);
       // Don't update state on error, keep previous data
