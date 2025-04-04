@@ -89,29 +89,39 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         },
       });
       
-      if (!response.ok) throw new Error('Failed to fetch data');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch data: ${response.status}`);
+      }
       
       const newData = await response.json();
       
-      // Validate the data structure and ensure we have houses
-      if (!validateHouseData(newData) || newData.houses.length === 0) {
-        console.error('Invalid or empty data received:', newData);
-        throw new Error('Invalid data structure received');
+      // More detailed validation
+      if (!newData || typeof newData !== 'object') {
+        throw new Error('Invalid response format');
+      }
+
+      if (!Array.isArray(newData.houses) || newData.houses.length === 0) {
+        throw new Error('No house data received');
+      }
+
+      if (!validateHouseData(newData)) {
+        throw new Error('Invalid data structure');
       }
       
-      // Only update if we have valid data
+      // Only update state if we have valid data
       setData(newData);
       setLastUpdate(Date.now());
       setNextRefresh(15);
+      setError(null); // Clear any previous errors
     } catch (err) {
       console.error('Error fetching house data:', err);
+      // Don't update state on error, keep previous data
       setError('Failed to load data. Retrying...');
-      // Keep the previous data on error
-      setNextRefresh(5); // Retry sooner on error
+      setNextRefresh(3); // Retry sooner on error
     } finally {
       setIsLoading(false);
     }
-  }, []); // Remove data from dependencies to prevent unnecessary re-renders
+  }, []); // Keep empty dependency array
 
   const toggleFullscreen = useCallback(async () => {
     try {
@@ -128,6 +138,18 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       console.error('Error toggling fullscreen:', err);
     }
   }, []);
+
+  // Separate effect for error recovery
+  useEffect(() => {
+    if (error) {
+      // If there's an error, try to recover after 3 seconds
+      const recoveryTimeout = setTimeout(() => {
+        fetchData();
+      }, 3000);
+      
+      return () => clearTimeout(recoveryTimeout);
+    }
+  }, [error, fetchData]);
 
   useEffect(() => {
     // Initial fetch
