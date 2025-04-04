@@ -268,9 +268,9 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         </div>
 
         {/* Message and Refresh Timer - Centered at bottom */}
-        <div className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+        <div className="absolute bottom-8 sm:bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
           {data.message && (
-            <div className="text-lg sm:text-xl font-medium text-gray-700 dark:text-gray-300 text-center">
+            <div className="text-xl sm:text-2xl font-medium text-gray-700 dark:text-gray-300 text-center">
               {data.message}
             </div>
           )}
