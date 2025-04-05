@@ -20,17 +20,23 @@ const HOUSE_CONFIGS = [
   { name: 'Chandler Hill', color: '#990000' },    // Dark Red
 ];
 
-// Helper function to safely convert any value to string
+// Helper function to safely convert any value to string and trim
 function safeString(value: any): string {
   if (value === null || value === undefined) return '';
-  return String(value);
+  return String(value).trim();
 }
 
 // Helper function to safely parse integer
 function safeParseInt(value: any): number {
   if (value === null || value === undefined) return 0;
-  const parsed = parseInt(String(value), 10);
+  const str = String(value).trim();
+  const parsed = parseInt(str, 10);
   return isNaN(parsed) ? 0 : parsed;
+}
+
+// Helper function to validate row data
+function isValidRow(row: any): boolean {
+  return Array.isArray(row) && row.length > 0 && row[0] != null;
 }
 
 export async function getHouseData(): Promise<HouseData> {
@@ -50,6 +56,7 @@ export async function getHouseData(): Promise<HouseData> {
       spreadsheetId: SPREADSHEET_ID,
       ranges: Object.values(RANGES),
       majorDimension: 'ROWS',
+      valueRenderOption: 'FORMATTED_VALUE', // Always get formatted strings
     });
 
     if (!response.data.valueRanges) {
@@ -77,30 +84,32 @@ export async function getHouseData(): Promise<HouseData> {
     // Process last inputs (now includes house and points in the same request)
     const lastInputs = (lastInputsData?.values || [])
       .filter(row => {
-        if (!Array.isArray(row)) return false;
+        if (!isValidRow(row)) return false;
         const timestamp = safeString(row[0]);
-        return timestamp.trim() !== '';
+        return timestamp !== '';
       })
       .map(row => ({
         timestamp: safeString(row[0]),
         house: safeString(row[2]),
         points: safeParseInt(row[3]),
       }))
+      .filter(input => input.timestamp !== '' && input.house !== '')
       .slice(-3)
       .reverse();
 
     // Process contributors
     const contributorPoints = new Map<string, number>();
-    (contributorsData?.values || []).forEach(row => {
-      if (!Array.isArray(row)) return;
-      const name = safeString(row[0]).trim();
-      const points = safeParseInt(row[1]);
-      
-      if (name !== '' && points > 0) {
-        const currentPoints = contributorPoints.get(name) || 0;
-        contributorPoints.set(name, currentPoints + points);
-      }
-    });
+    (contributorsData?.values || [])
+      .filter(isValidRow)
+      .forEach(row => {
+        const name = safeString(row[0]);
+        const points = safeParseInt(row[1]);
+        
+        if (name !== '' && points > 0) {
+          const currentPoints = contributorPoints.get(name) || 0;
+          contributorPoints.set(name, currentPoints + points);
+        }
+      });
 
     const topContributors = Array.from(contributorPoints.entries())
       .map(([name, points]) => ({

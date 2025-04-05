@@ -105,6 +105,12 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   }, []);
 
   const fetchData = useCallback(async () => {
+    // Don't fetch if display is forced off
+    if (forceDisplay === false) {
+      console.log('Display forced OFF, skipping fetch');
+      return;
+    }
+
     // Only fetch if we're in fetching hours OR if display is forced on
     if (isOutsideFetchingHours() && forceDisplay !== true) {
       console.log('Outside fetching hours (4:30pm-7:30am), skipping fetch');
@@ -348,8 +354,14 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   }, []);
 
   useEffect(() => {
-    // Initial fetch
-    fetchData();
+    // Set initial force display state based on current time
+    const initialForceDisplay = isOutsideFetchingHours() ? false : null;
+    setForceDisplay(initialForceDisplay);
+    
+    // Initial fetch only if not forced off
+    if (initialForceDisplay !== false) {
+      fetchData();
+    }
 
     let countdownInterval: NodeJS.Timeout;
     let checkInterval: NodeJS.Timeout;
@@ -359,56 +371,43 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       if (countdownInterval) clearInterval(countdownInterval);
       if (checkInterval) clearInterval(checkInterval);
 
-      // If display is forced on or during normal hours, use standard refresh logic
-      if (forceDisplay === true || !isOutsideFetchingHours()) {
-        // Don't set up a new interval if one is pending
-        if (!isLoading) {
-          checkInterval = setInterval(fetchData, 15 * 60 * 1000); // 15 minutes
-        }
-        
+      // If display is forced off, just set up countdown without fetching
+      if (forceDisplay === false) {
+        setNextRefresh(30 * 60); // 30 minutes
         countdownInterval = setInterval(() => {
-          setNextRefresh(prev => {
-            if (prev <= 0) {
-              // Only fetch if not already loading
-              if (!isLoading) {
-                fetchData();
-              }
-              return 15 * 60; // Reset to 15 minutes
-            }
-            return prev - 1;
-          });
+          setNextRefresh(prev => prev > 0 ? prev - 1 : 30 * 60);
         }, 1000);
-      } else {
-        // During off-hours, use dynamic check intervals
-        const runTimeCheck = () => {
-          const interval = getNextCheckInterval();
-          setNextRefresh(interval);
-          
-          // Clear and reset the intervals with the new timing
-          if (checkInterval) clearInterval(checkInterval);
-          if (countdownInterval) clearInterval(countdownInterval);
-          
-          // Only set up new fetch interval if not loading
-          if (!isLoading) {
-            checkInterval = setInterval(runTimeCheck, interval * 1000);
-          }
-          
-          countdownInterval = setInterval(() => {
-            setNextRefresh(prev => {
-              if (prev <= 0) {
-                // Only fetch if not already loading
-                if (!isLoading) {
-                  const newInterval = getNextCheckInterval();
-                  return newInterval;
-                }
-              }
-              return prev - 1;
-            });
-          }, 1000);
-        };
+        return;
+      }
 
-        // Initial run
-        runTimeCheck();
+      // Determine the refresh interval based on display state
+      const getRefreshInterval = () => {
+        if (forceDisplay === true) {
+          return 15 * 60; // 15 minutes when forced on
+        }
+        return isOutsideFetchingHours() ? 30 * 60 : 15 * 60;
+      };
+
+      // Set initial refresh interval
+      const interval = getRefreshInterval();
+      setNextRefresh(interval);
+
+      // Set up the countdown interval
+      countdownInterval = setInterval(() => {
+        setNextRefresh(prev => {
+          if (prev <= 0) {
+            if (!isLoading && (forceDisplay === true || !isOutsideFetchingHours())) {
+              fetchData();
+            }
+            return getRefreshInterval();
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      // Set up the check interval only if not forced off
+      if (forceDisplay === true || !isOutsideFetchingHours()) {
+        checkInterval = setInterval(fetchData, interval * 1000);
       }
     };
 
@@ -428,14 +427,12 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       // Force data reload (Ctrl + B)
       if (e.ctrlKey && e.key.toLowerCase() === 'b') {
         e.preventDefault();
-        // Only force reload if not already loading
-        if (!isLoading) {
+        // Only allow force reload if not forced off
+        if (!isLoading && forceDisplay !== false) {
           console.log('Forcing data reload...');
           fetchData();
-          // Set refresh timer based on forced display state
-          setNextRefresh(forceDisplay === true ? 15 * 60 : getNextCheckInterval());
         } else {
-          console.log('Skipping force reload - already loading');
+          console.log('Skipping force reload - display forced off or already loading');
         }
       }
 
@@ -443,48 +440,24 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       if (e.ctrlKey && e.key.toLowerCase() === 'l') {
         e.preventDefault();
         setForceDisplay(prev => {
-          const newValue = prev === null ? !shouldHideDisplay() : !prev;
-          console.log(`Display mode: ${newValue ? 'Forced ON' : 'Forced OFF'}`);
+          // If we're in auto mode (null), toggle based on current state
+          if (prev === null) {
+            const newValue = !shouldHideDisplay();
+            console.log(`Switching from auto to ${newValue ? 'ON' : 'OFF'}`);
+            return newValue;
+          }
           
-          // Clear existing intervals before setting up new ones
-          if (checkInterval) clearInterval(checkInterval);
-          if (countdownInterval) clearInterval(countdownInterval);
+          // If we're in a forced state, toggle it
+          const newValue = !prev;
+          console.log(`Toggling display from ${prev ? 'ON' : 'OFF'} to ${newValue ? 'ON' : 'OFF'}`);
           
-          if (newValue) {
-            // Forcing display ON
-            if (!isLoading) {
-              console.log('Forcing display ON - fetching fresh data');
-              fetchData();
-              setNextRefresh(15 * 60); // 15 minutes
-              
-              // Set up new intervals for forced display mode
-              checkInterval = setInterval(fetchData, 15 * 60 * 1000);
-              countdownInterval = setInterval(() => {
-                setNextRefresh(prev => {
-                  if (prev <= 0) {
-                    if (!isLoading) fetchData();
-                    return 15 * 60;
-                  }
-                  return prev - 1;
-                });
-              }, 1000);
-            }
-          } else {
-            // Forcing display OFF
-            const interval = getNextCheckInterval();
-            setNextRefresh(interval);
-            
-            // Set up new intervals for off-hours mode
-            checkInterval = setInterval(() => {
-              const newInterval = getNextCheckInterval();
-              if (!isLoading) {
-                setNextRefresh(newInterval);
-              }
-            }, interval * 1000);
-            
-            countdownInterval = setInterval(() => {
-              setNextRefresh(prev => prev > 0 ? prev - 1 : getNextCheckInterval());
-            }, 1000);
+          // Clear and reset intervals with new state
+          setupIntervals();
+          
+          // If forcing display on, fetch data immediately
+          if (newValue && !isLoading) {
+            console.log('Forcing display ON - fetching fresh data');
+            fetchData();
           }
           
           return newValue;
@@ -509,7 +482,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [fetchData, toggleFullscreen, isFullscreen, shouldHideDisplay, forceDisplay, getNextCheckInterval, isOutsideFetchingHours]);
+  }, [fetchData, toggleFullscreen, isFullscreen, shouldHideDisplay, forceDisplay, isOutsideFetchingHours]);
 
   // Calculate total points
   const totalPoints = data.houses.reduce((sum, house) => sum + house.points, 0);
