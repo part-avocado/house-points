@@ -2,32 +2,23 @@ import { google } from 'googleapis';
 import { House, HouseData } from '../types/house';
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID || '';
-const TOTAL_POINTS_RANGE = 'G2';
-const MESSAGE_RANGE = 'H21'; // Add message range
-const HOUSE_POINTS_RANGES = [
-  { name: 'Newton Hill', range: 'I2' },
-  { name: 'Green Hill', range: 'I3' },
-  { name: 'Tatnuck Hill', range: 'I4' },
-  { name: 'Bancroft Hill', range: 'I5' },
-  { name: 'Pakachoag Hill', range: 'I6' },
-  { name: 'Union Hill', range: 'I7' },
-  { name: 'Chandler Hill', range: 'I8' },
-];
-const LAST_INPUTS_RANGE = 'A2:A100'; // Read more rows to find last 3 non-empty
-const CONTRIBUTORS_RANGE = 'L2:M100'; // Read contributor names and points from columns L and M
+const RANGES = {
+  TOTAL_POINTS: 'G2',
+  MESSAGE: 'H21',
+  HOUSE_POINTS: 'I2:I8',
+  LAST_INPUTS: 'A2:D100', // Include timestamp, house, and points columns
+  CONTRIBUTORS: 'L2:M100',
+};
 
-function getHouseColor(house: string): string {
-  const colors: { [key: string]: string } = {
-    'Newton Hill': '#808080',      // Gray
-    'Green Hill': '#00cc66',       // Green
-    'Tatnuck Hill': '#ffaa44',     // Orange
-    'Bancroft Hill': '#0066cc',    // Blue
-    'Pakachoag Hill': '#9966ff',   // Purple
-    'Union Hill': '#ff4444',       // Red
-    'Chandler Hill': '#990000',    // Dark Red
-  };
-  return colors[house] || '#cccccc';
-}
+const HOUSE_CONFIGS = [
+  { name: 'Newton Hill', color: '#808080' },      // Gray
+  { name: 'Green Hill', color: '#00cc66' },       // Green
+  { name: 'Tatnuck Hill', color: '#ffaa44' },     // Orange
+  { name: 'Bancroft Hill', color: '#0066cc' },    // Blue
+  { name: 'Pakachoag Hill', color: '#9966ff' },   // Purple
+  { name: 'Union Hill', color: '#ff4444' },       // Red
+  { name: 'Chandler Hill', color: '#990000' },    // Dark Red
+];
 
 export async function getHouseData(): Promise<HouseData> {
   try {
@@ -40,102 +31,70 @@ export async function getHouseData(): Promise<HouseData> {
     });
 
     const sheets = google.sheets({ version: 'v4', auth });
-    
-    // Get all data in parallel
-    const [totalPointsResponse, housePointsResponse, lastInputsResponse, contributorsResponse, messageResponse] = await Promise.all([
-      sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: TOTAL_POINTS_RANGE,
-      }),
-      sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'I2:I8',
-      }),
-      sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: LAST_INPUTS_RANGE,
-      }),
-      sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: CONTRIBUTORS_RANGE,
-      }),
-      sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: MESSAGE_RANGE,
-      }),
-    ]);
 
-    const totalPoints = parseInt(totalPointsResponse.data.values?.[0]?.[0] || '0', 10);
-    const housePointsValues = housePointsResponse.data.values || [];
-    const lastInputRows = lastInputsResponse.data.values || [];
-    const contributorRows = contributorsResponse.data.values || [];
+    // Get all data in a single batch request
+    const response = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: SPREADSHEET_ID,
+      ranges: Object.values(RANGES),
+      majorDimension: 'ROWS',
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
 
-    // Create houses array with points from the correct cells
-    const houses: House[] = HOUSE_POINTS_RANGES.map((houseConfig, index) => ({
-      name: houseConfig.name,
-      points: parseInt(housePointsValues[index]?.[0] || '0', 10),
-      color: getHouseColor(houseConfig.name),
-    }));
+    const [
+      totalPointsData,
+      messageData,
+      housePointsData,
+      lastInputsData,
+      contributorsData,
+    ] = response.data.valueRanges || [];
 
-    // Get last 3 non-empty timestamps from column A and reverse the order
-    const lastInputs = lastInputRows
+    // Process total points
+    const totalPoints = parseInt(totalPointsData?.values?.[0]?.[0] || '0', 10);
+
+    // Process house points
+    const houses: House[] = HOUSE_CONFIGS.map((config, index) => ({
+      name: config.name,
+      points: parseInt(housePointsData?.values?.[index]?.[0] || '0', 10),
+      color: config.color,
+    })).sort((a, b) => b.points - a.points);
+
+    // Process last inputs (now includes house and points in the same request)
+    const lastInputs = (lastInputsData?.values || [])
       .filter(row => row[0] && row[0].trim() !== '') // Filter out empty rows
-      .slice(-3) // Take last 3 rows
-      .reverse() // Reverse to get newest first
       .map(row => ({
-        timestamp: row[0], // Column A
-        house: '', // We'll fill these in from the corresponding rows
-        points: 0, // We'll fill these in from the corresponding rows
-      }));
+        timestamp: row[0],
+        house: row[2] || '', // Column C
+        points: parseInt(row[3] || '0', 10), // Column D
+      }))
+      .slice(-3) // Take last 3 rows
+      .reverse(); // Reverse to get newest first
 
-    // For each timestamp, get the corresponding house and points
-    const lastInputsWithDetails = await Promise.all(
-      lastInputs.map(async (input, index) => {
-        const rowIndex = lastInputRows.findIndex(row => row[0] === input.timestamp) + 2; // +2 because rows are 1-indexed and we start from A2
-        const rowResponse = await sheets.spreadsheets.values.get({
-          spreadsheetId: SPREADSHEET_ID,
-          range: `C${rowIndex}:D${rowIndex}`,
-        });
-        
-        const rowData = rowResponse.data.values?.[0] || [];
-        return {
-          ...input,
-          house: rowData[0] || '', // Column C
-          points: parseInt(rowData[1] || '0', 10), // Column D
-        };
-      })
-    );
-
-    // Process contributor data
+    // Process contributors
     const contributorPoints = new Map<string, number>();
-    
-    contributorRows.forEach(row => {
-      const name = row[0]; // Column L (first column in our range)
-      const points = parseInt(row[1] || '0', 10); // Column M (second column in our range)
-      
+    (contributorsData?.values || []).forEach(row => {
+      const [name, points] = row;
       if (name && name.trim() !== '' && !isNaN(points) && points > 0) {
         const currentPoints = contributorPoints.get(name) || 0;
         contributorPoints.set(name, currentPoints + points);
       }
     });
-    
-    // Convert to array and sort by points
+
     const topContributors = Array.from(contributorPoints.entries())
       .map(([name, points]) => ({
-        email: name, // Using the name field instead of email
-        points
+        email: name,
+        points,
       }))
       .sort((a, b) => b.points - a.points)
-      .slice(0, 5); // Get top 5 contributors
+      .slice(0, 5);
 
-    // Get message from H21
-    const message = messageResponse.data.values?.[0]?.[0];
+    // Process message
+    const message = messageData?.values?.[0]?.[0];
 
     return {
-      houses: houses.sort((a, b) => b.points - a.points), // Sort by points in descending order
-      lastInputs: lastInputsWithDetails,
+      houses,
+      lastInputs,
       topContributors,
-      message: message || undefined, // Only include message if it exists
+      message: message || undefined,
     };
   } catch (error) {
     console.error('Error fetching house data:', error);
