@@ -5,7 +5,6 @@ import { House, HouseData } from '../types/house';
 import Image from 'next/image';
 import { SpeedInsights } from "@vercel/speed-insights/next"
 
-<SpeedInsights/>
 interface HousePointsProps {
   initialData: HouseData;
 }
@@ -85,12 +84,29 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   const [data, setData] = useState<HouseData>(initialData);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [nextRefresh, setNextRefresh] = useState(30);
+  const [nextRefresh, setNextRefresh] = useState(15 * 60); // 15 minutes in seconds
   const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMouse, setShowMouse] = useState(true);
 
+  // Check if current time is between 6pm and 7:30am
+  const isOutsideFetchingHours = useCallback(() => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    
+    // After 6pm or before 7:30am
+    return hours >= 18 || (hours < 7 || (hours === 7 && minutes < 30));
+  }, []);
+
   const fetchData = useCallback(async () => {
+    // Don't fetch if outside fetching hours
+    if (isOutsideFetchingHours()) {
+      console.log('Outside fetching hours (6pm-7:30am), skipping fetch');
+      setNextRefresh(60); // Check again in 1 minute
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
@@ -149,14 +165,11 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         delete newData.message;
       }
 
-      // Log the message for debugging
-      console.log('Message from API:', newData.message);
-
       // Only update state if we have valid houses
       if (newData.houses.length > 0) {
         setData(newData);
         setLastUpdate(Date.now());
-        setNextRefresh(30);
+        setNextRefresh(15 * 60); // Reset to 15 minutes
         setError(null);
       } else {
         throw new Error('No house data available');
@@ -169,7 +182,17 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     } finally {
       setIsLoading(false);
     }
-  }, []); // Remove data dependency to prevent unnecessary re-renders
+  }, [isOutsideFetchingHours]);
+
+  // Format the countdown display
+  const formatCountdown = useCallback((seconds: number) => {
+    if (seconds > 30) {
+      const minutes = Math.ceil(seconds / 60);
+      return `Refreshing in ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+    } else {
+      return `Refreshing in ${seconds} second${seconds !== 1 ? 's' : ''}`;
+    }
+  }, []);
 
   const toggleFullscreen = useCallback(async () => {
     try {
@@ -200,9 +223,15 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     fetchData();
 
     // Set up intervals
-    const refreshInterval = setInterval(fetchData, 30000);
+    const refreshInterval = setInterval(fetchData, 15 * 60 * 1000); // 15 minutes
     const countdownInterval = setInterval(() => {
-      setNextRefresh(prev => prev > 0 ? prev - 1 : 30);
+      setNextRefresh(prev => {
+        if (prev <= 0) {
+          fetchData();
+          return 15 * 60; // Reset to 15 minutes
+        }
+        return prev - 1;
+      });
     }, 1000);
 
     // Handle fullscreen keyboard shortcut
@@ -350,7 +379,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             </div>
           )}
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {isLoading ? 'Refreshing...' : `Next refresh in ${nextRefresh}s`}
+            {isLoading ? 'Refreshing...' : formatCountdown(nextRefresh)}
             {error && <span className="text-red-500 ml-2">{error}</span>}
           </div>
         </div>
@@ -358,4 +387,3 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     </div>
   );
 } 
-<SpeedInsights/>
