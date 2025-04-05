@@ -294,13 +294,32 @@ export default function HousePoints({ initialData }: HousePointsProps) {
 
   // Handle mouse movement
   const handleMouseMove = useCallback(() => {
-    setShowMouse(true);
-    // Hide mouse after 3 seconds of inactivity
-    const timeout = setTimeout(() => {
+    if (!showMouse) {
+      setShowMouse(true);
+    }
+    
+    // Clear any existing timeout
+    const timeoutId = setTimeout(() => {
       setShowMouse(false);
     }, 3000);
-    return () => clearTimeout(timeout);
-  }, []);
+
+    return () => clearTimeout(timeoutId);
+  }, [showMouse]);
+
+  useEffect(() => {
+    // Add mouse move listener
+    window.addEventListener('mousemove', handleMouseMove);
+    
+    // Initial hide after 3 seconds
+    const initialTimeout = setTimeout(() => {
+      setShowMouse(false);
+    }, 3000);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      clearTimeout(initialTimeout);
+    };
+  }, [handleMouseMove]);
 
   useEffect(() => {
     // Initial fetch
@@ -355,7 +374,6 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     // Cleanup
@@ -363,7 +381,6 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       clearInterval(refreshInterval);
       clearInterval(countdownInterval);
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, [fetchData, toggleFullscreen, isFullscreen, shouldHideDisplay]);
@@ -375,8 +392,10 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     const isNightMode = isLateNight();
     
     return (
-      <div className={`min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden transition-colors duration-1000
-        ${isNightMode ? 'bg-gray-950' : 'bg-gray-900'}`}>
+      <div 
+        className={`min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden transition-colors duration-1000
+          ${isNightMode ? 'bg-gray-950' : 'bg-gray-900'} ${!showMouse ? 'cursor-none' : ''}`}
+      >
         {/* Animated background with particles */}
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-900" />
         
