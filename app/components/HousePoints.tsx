@@ -444,6 +444,13 @@ export default function HousePoints({ initialData }: HousePointsProps) {
           if (prev === null) {
             const newValue = !shouldHideDisplay();
             console.log(`Switching from auto to ${newValue ? 'ON' : 'OFF'}`);
+            
+            // If switching to ON, fetch data immediately
+            if (newValue && !isLoading) {
+              console.log('Switching to ON - fetching fresh data');
+              fetchData();
+            }
+            
             return newValue;
           }
           
@@ -451,12 +458,9 @@ export default function HousePoints({ initialData }: HousePointsProps) {
           const newValue = !prev;
           console.log(`Toggling display from ${prev ? 'ON' : 'OFF'} to ${newValue ? 'ON' : 'OFF'}`);
           
-          // Clear and reset intervals with new state
-          setupIntervals();
-          
-          // If forcing display on, fetch data immediately
+          // If switching to ON, fetch data immediately
           if (newValue && !isLoading) {
-            console.log('Forcing display ON - fetching fresh data');
+            console.log('Switching to ON - fetching fresh data');
             fetchData();
           }
           
