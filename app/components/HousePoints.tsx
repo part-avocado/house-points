@@ -446,16 +446,47 @@ export default function HousePoints({ initialData }: HousePointsProps) {
           const newValue = prev === null ? !shouldHideDisplay() : !prev;
           console.log(`Display mode: ${newValue ? 'Forced ON' : 'Forced OFF'}`);
           
-          // If forcing display on, fetch data immediately only if not already loading
-          if (newValue && !isLoading) {
-            console.log('Forcing display ON - fetching fresh data');
-            fetchData();
-            setNextRefresh(15 * 60); // Set to 15 minutes when forcing display on
-          } else if (!newValue) {
-            setNextRefresh(getNextCheckInterval());
+          // Clear existing intervals before setting up new ones
+          if (checkInterval) clearInterval(checkInterval);
+          if (countdownInterval) clearInterval(countdownInterval);
+          
+          if (newValue) {
+            // Forcing display ON
+            if (!isLoading) {
+              console.log('Forcing display ON - fetching fresh data');
+              fetchData();
+              setNextRefresh(15 * 60); // 15 minutes
+              
+              // Set up new intervals for forced display mode
+              checkInterval = setInterval(fetchData, 15 * 60 * 1000);
+              countdownInterval = setInterval(() => {
+                setNextRefresh(prev => {
+                  if (prev <= 0) {
+                    if (!isLoading) fetchData();
+                    return 15 * 60;
+                  }
+                  return prev - 1;
+                });
+              }, 1000);
+            }
+          } else {
+            // Forcing display OFF
+            const interval = getNextCheckInterval();
+            setNextRefresh(interval);
+            
+            // Set up new intervals for off-hours mode
+            checkInterval = setInterval(() => {
+              const newInterval = getNextCheckInterval();
+              if (!isLoading) {
+                setNextRefresh(newInterval);
+              }
+            }, interval * 1000);
+            
+            countdownInterval = setInterval(() => {
+              setNextRefresh(prev => prev > 0 ? prev - 1 : getNextCheckInterval());
+            }, 1000);
           }
           
-          setupIntervals(); // Reset intervals based on new state
           return newValue;
         });
       }
