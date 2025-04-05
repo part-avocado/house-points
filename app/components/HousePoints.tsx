@@ -92,23 +92,15 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   // Check if current time is between 4:30pm and 7:30am
   const isOutsideFetchingHours = useCallback(() => {
     const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    
-    // After 4:30pm (16:30) or before 7:30am (07:30)
-    if (hours < 7 || (hours === 7 && minutes < 30)) {
-      // Before 7:30 AM
-      return true;
-    } else if (hours === 16 && minutes >= 30) {
-      // After 4:30 PM but before 5 PM
-      return true;
-    } else if (hours > 16) {
-      // After 5 PM
-      return true;
-    }
-    
-    // Between 7:30 AM and 4:30 PM
-    return false;
+    // Create start and end times for today
+    const morningStart = new Date(now);
+    morningStart.setHours(7, 30, 0, 0); // 7:30 AM
+
+    const eveningEnd = new Date(now);
+    eveningEnd.setHours(16, 30, 0, 0); // 4:30 PM
+
+    // Compare current time with boundaries
+    return now < morningStart || now >= eveningEnd;
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -246,11 +238,20 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       });
     }, 1000);
 
-    // Handle fullscreen keyboard shortcut
+    // Handle keyboard shortcuts
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Fullscreen toggle (Ctrl + K)
       if (e.ctrlKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         toggleFullscreen();
+      }
+      
+      // Force data reload (Ctrl + B)
+      if (e.ctrlKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        console.log('Forcing data reload...');
+        fetchData();
+        setNextRefresh(15 * 60); // Reset countdown
       }
     };
 
