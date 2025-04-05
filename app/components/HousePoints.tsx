@@ -317,32 +317,77 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     });
   }, []);
 
-  // Update time every second
+  // Check if it's late night (10pm-5am)
+  const isLateNight = useCallback(() => {
+    const now = new Date();
+    const hours = now.getHours();
+    return hours >= 22 || hours < 5;
+  }, []);
+
+  // Format current time with animation trigger
+  const [prevTime, setPrevTime] = useState(formatCurrentTime());
+  const [timeKey, setTimeKey] = useState(0);
+
+  const updateTimeWithAnimation = useCallback(() => {
+    const newTime = formatCurrentTime();
+    if (newTime !== prevTime) {
+      setTimeKey(prev => prev + 1);
+      setPrevTime(newTime);
+    }
+    return newTime;
+  }, [prevTime, formatCurrentTime]);
+
+  // Update time every second with animation
   const [currentTime, setCurrentTime] = useState(formatCurrentTime());
   useEffect(() => {
     const timeInterval = setInterval(() => {
-      setCurrentTime(formatCurrentTime());
+      setCurrentTime(updateTimeWithAnimation());
     }, 1000);
     return () => clearInterval(timeInterval);
-  }, [formatCurrentTime]);
+  }, [updateTimeWithAnimation]);
 
   if (shouldHideDisplay()) {
+    const isNightMode = isLateNight();
+    
     return (
-      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
-        <div className="text-center space-y-8">
-          <Image
-            src="/bancroftlogo.svg"
-            alt="Bancroft School"
-            width={200}
-            height={200}
-            className="mx-auto"
-            priority
-          />
-          <div className="text-6xl font-bold text-gray-100">
+      <div className={`min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden transition-colors duration-1000
+        ${isNightMode ? 'bg-gray-950' : 'bg-gray-900'}`}>
+        {/* Animated background */}
+        <div className={`absolute inset-0 bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 
+          animate-gradient-shift opacity-30 transition-opacity duration-1000
+          ${isNightMode ? 'opacity-10' : 'opacity-30'}`} />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.9)_100%)]" />
+        
+        {/* Floating particles */}
+        <div className={`absolute inset-0 transition-opacity duration-1000 
+          ${isNightMode ? 'opacity-30' : 'opacity-60'}`}>
+          <div className="absolute h-2 w-2 bg-blue-400 rounded-full top-1/4 left-1/3 animate-float-slow" />
+          <div className="absolute h-2 w-2 bg-purple-400 rounded-full top-1/2 right-1/3 animate-float-medium" />
+          <div className="absolute h-2 w-2 bg-indigo-400 rounded-full bottom-1/4 left-1/2 animate-float-fast" />
+        </div>
+
+        {/* Content */}
+        <div className="text-center space-y-8 relative z-10">
+          <div className="relative">
+            <Image
+              src="/bancroftlogo.svg"
+              alt="Bancroft School"
+              width={200}
+              height={200}
+              className={`mx-auto transition-opacity duration-1000
+                ${isNightMode ? 'opacity-50' : 'opacity-80'}`}
+              priority
+            />
+          </div>
+          <div 
+            key={timeKey}
+            className="text-6xl font-bold text-gray-100 animate-time-flip perspective"
+          >
             {currentTime}
           </div>
-          <div className="text-xl text-gray-400">
-            Hey... You aren't supposed to see this.
+          <div className={`text-xl transition-colors duration-1000
+            ${isNightMode ? 'text-gray-500' : 'text-gray-400'} animate-fade-in-delay`}>
+            Oh no. This wasn't supposed to happen.
           </div>
         </div>
       </div>
@@ -384,34 +429,22 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm">
               <h2 className="text-lg sm:text-xl font-bold mb-4 dark:text-white">Latest Activity</h2>
               <div className="space-y-3">
-                {data.lastInputs
-                  // Filter out duplicates while keeping the most recent one
-                  .filter((input, index, self) => 
-                    index === self.findIndex(t => (
-                      t.house === input.house && 
-                      t.points === input.points &&
-                      // Consider entries within 1 second as duplicates
-                      Math.abs(new Date(t.timestamp).getTime() - new Date(input.timestamp).getTime()) < 1000
-                    ))
-                  )
-                  // Only show first 3 unique entries
-                  .slice(0, 3)
-                  .map((input, index) => (
-                    <div 
-                      key={`${input.house}-${input.points}-${input.timestamp}-${lastUpdate}`}
-                      className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs sm:text-sm"
-                    >
-                      <span className="font-bold text-blue-600 dark:text-blue-400 w-12 sm:w-14">
-                        +{input.points}
-                      </span>
-                      <span className="text-gray-600 dark:text-gray-300 truncate">
-                        to {input.house}
-                      </span>
-                      <span className="text-gray-400 dark:text-gray-500 text-right">
-                        {formatTimeAgo(input.timestamp)}
-                      </span>
-                    </div>
-                  ))}
+                {data.lastInputs.map((input, index) => (
+                  <div 
+                    key={`${input.house}-${input.points}-${input.timestamp}-${lastUpdate}`}
+                    className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs sm:text-sm"
+                  >
+                    <span className="font-bold text-blue-600 dark:text-blue-400 w-12 sm:w-14">
+                      +{input.points}
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-300 truncate">
+                      to {input.house}
+                    </span>
+                    <span className="text-gray-400 dark:text-gray-500 text-right">
+                      {formatTimeAgo(input.timestamp)}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
 

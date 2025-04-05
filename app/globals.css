@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+.perspective {
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
