@@ -95,8 +95,20 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     const hours = now.getHours();
     const minutes = now.getMinutes();
     
-    // After 4:30pm or before 7:30am
-    return (hours > 16 || (hours === 16 && minutes >= 30)) || (hours < 7 || (hours === 7 && minutes < 30));
+    // After 4:30pm (16:30) or before 7:30am (07:30)
+    if (hours < 7 || (hours === 7 && minutes < 30)) {
+      // Before 7:30 AM
+      return true;
+    } else if (hours === 16 && minutes >= 30) {
+      // After 4:30 PM but before 5 PM
+      return true;
+    } else if (hours > 16) {
+      // After 5 PM
+      return true;
+    }
+    
+    // Between 7:30 AM and 4:30 PM
+    return false;
   }, []);
 
   const fetchData = useCallback(async () => {
