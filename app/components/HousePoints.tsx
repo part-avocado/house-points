@@ -88,6 +88,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMouse, setShowMouse] = useState(true);
+  const [forceDisplay, setForceDisplay] = useState<boolean | null>(null); // null = auto, true = force show, false = force hide
 
   // Check if current time is between 4:30pm and 7:30am
   const isOutsideFetchingHours = useCallback(() => {
@@ -222,79 +223,11 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     }
   }, []);
 
-  useEffect(() => {
-    // Initial fetch
-    fetchData();
-
-    // Set up intervals
-    const refreshInterval = setInterval(fetchData, 15 * 60 * 1000); // 15 minutes
-    const countdownInterval = setInterval(() => {
-      setNextRefresh(prev => {
-        if (prev <= 0) {
-          fetchData();
-          return 15 * 60; // Reset to 15 minutes
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    // Handle keyboard shortcuts
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Fullscreen toggle (Ctrl + K)
-      if (e.ctrlKey && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        toggleFullscreen();
-      }
-      
-      // Force data reload (Ctrl + B)
-      if (e.ctrlKey && e.key.toLowerCase() === 'b') {
-        e.preventDefault();
-        console.log('Forcing data reload...');
-        fetchData();
-        setNextRefresh(15 * 60); // Reset countdown
-      }
-    };
-
-    // Handle mouse movement in fullscreen
-    const handleMouseMove = () => {
-      if (isFullscreen) {
-        setShowMouse(true);
-        // Hide mouse after 3 seconds of inactivity
-        const timeout = setTimeout(() => {
-          if (document.fullscreenElement) {
-            setShowMouse(false);
-          }
-        }, 3000);
-        return () => clearTimeout(timeout);
-      }
-    };
-
-    // Handle fullscreen change
-    const handleFullscreenChange = () => {
-      const isInFullscreen = !!document.fullscreenElement;
-      setIsFullscreen(isInFullscreen);
-      setShowMouse(!isInFullscreen);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-
-    // Cleanup
-    return () => {
-      clearInterval(refreshInterval);
-      clearInterval(countdownInterval);
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    };
-  }, [fetchData, toggleFullscreen, isFullscreen]);
-
-  // Calculate total points
-  const totalPoints = data.houses.reduce((sum, house) => sum + house.points, 0);
-
   // Check if display should be hidden
   const shouldHideDisplay = useCallback(() => {
+    // If force display is set, use that value
+    if (forceDisplay !== null) return !forceDisplay;
+    
     // Check if outside fetching hours
     if (isOutsideFetchingHours()) return true;
     
@@ -305,7 +238,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     if (!data.houses || data.houses.length === 0) return true;
     
     return false;
-  }, [data, isOutsideFetchingHours]);
+  }, [data, isOutsideFetchingHours, forceDisplay]);
 
   // Format current time
   const formatCurrentTime = useCallback(() => {
@@ -337,14 +270,104 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     return newTime;
   }, [prevTime, formatCurrentTime]);
 
+  // Split time into individual characters for animation
+  const splitTimeIntoCharacters = (time: string) => {
+    // Remove any spaces from the time string
+    return time.replace(/\s/g, '').split('');
+  };
+
   // Update time every second with animation
   const [currentTime, setCurrentTime] = useState(formatCurrentTime());
+  const [prevTimeChars, setPrevTimeChars] = useState(splitTimeIntoCharacters(currentTime));
+  const currentTimeChars = splitTimeIntoCharacters(currentTime);
+
   useEffect(() => {
     const timeInterval = setInterval(() => {
-      setCurrentTime(updateTimeWithAnimation());
+      const newTime = formatCurrentTime();
+      setPrevTimeChars(splitTimeIntoCharacters(currentTime));
+      setCurrentTime(newTime);
     }, 1000);
     return () => clearInterval(timeInterval);
-  }, [updateTimeWithAnimation]);
+  }, [currentTime, formatCurrentTime]);
+
+  // Handle mouse movement
+  const handleMouseMove = useCallback(() => {
+    setShowMouse(true);
+    // Hide mouse after 3 seconds of inactivity
+    const timeout = setTimeout(() => {
+      setShowMouse(false);
+    }, 3000);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    // Initial fetch
+    fetchData();
+
+    // Set up intervals
+    const refreshInterval = setInterval(fetchData, 15 * 60 * 1000); // 15 minutes
+    const countdownInterval = setInterval(() => {
+      setNextRefresh(prev => {
+        if (prev <= 0) {
+          fetchData();
+          return 15 * 60; // Reset to 15 minutes
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    // Handle keyboard shortcuts
+    const handleKeyDown = (e: KeyboardEvent) => {
+      setShowMouse(true); // Show mouse on keyboard interaction
+      
+      // Fullscreen toggle (Ctrl + K)
+      if (e.ctrlKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+      
+      // Force data reload (Ctrl + B)
+      if (e.ctrlKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        console.log('Forcing data reload...');
+        fetchData();
+        setNextRefresh(15 * 60); // Reset countdown
+      }
+
+      // Toggle force display (Ctrl + L)
+      if (e.ctrlKey && e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        setForceDisplay(prev => {
+          const newValue = prev === null ? !shouldHideDisplay() : !prev;
+          console.log(`Display mode: ${newValue ? 'Forced ON' : 'Forced OFF'}`);
+          return newValue;
+        });
+      }
+    };
+
+    // Handle fullscreen change
+    const handleFullscreenChange = () => {
+      const isInFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(isInFullscreen);
+      setShowMouse(!isInFullscreen);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    // Cleanup
+    return () => {
+      clearInterval(refreshInterval);
+      clearInterval(countdownInterval);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [fetchData, toggleFullscreen, isFullscreen, shouldHideDisplay]);
+
+  // Calculate total points
+  const totalPoints = data.houses.reduce((sum, house) => sum + house.points, 0);
 
   if (shouldHideDisplay()) {
     const isNightMode = isLateNight();
@@ -352,18 +375,26 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     return (
       <div className={`min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden transition-colors duration-1000
         ${isNightMode ? 'bg-gray-950' : 'bg-gray-900'}`}>
-        {/* Animated background */}
-        <div className={`absolute inset-0 bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 
-          animate-gradient-shift opacity-30 transition-opacity duration-1000
-          ${isNightMode ? 'opacity-10' : 'opacity-30'}`} />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.9)_100%)]" />
+        {/* Animated background with particles */}
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-900 to-gray-900" />
         
         {/* Floating particles */}
         <div className={`absolute inset-0 transition-opacity duration-1000 
-          ${isNightMode ? 'opacity-30' : 'opacity-60'}`}>
-          <div className="absolute h-2 w-2 bg-blue-400 rounded-full top-1/4 left-1/3 animate-float-slow" />
-          <div className="absolute h-2 w-2 bg-purple-400 rounded-full top-1/2 right-1/3 animate-float-medium" />
-          <div className="absolute h-2 w-2 bg-indigo-400 rounded-full bottom-1/4 left-1/2 animate-float-fast" />
+          ${isNightMode ? 'opacity-20' : 'opacity-40'}`}>
+          {/* Large slow particles */}
+          <div className="absolute h-32 w-32 bg-blue-900/20 rounded-full -top-16 left-1/4 animate-float-xl blur-xl" />
+          <div className="absolute h-40 w-40 bg-purple-900/20 rounded-full top-1/3 -right-20 animate-float-reverse-xl blur-xl" />
+          <div className="absolute h-36 w-36 bg-indigo-900/20 rounded-full -bottom-20 left-1/3 animate-float-large blur-xl" />
+          
+          {/* Medium particles */}
+          <div className="absolute h-24 w-24 bg-blue-800/20 rounded-full top-1/4 right-1/4 animate-float-medium blur-lg" />
+          <div className="absolute h-20 w-20 bg-purple-800/20 rounded-full bottom-1/3 left-1/4 animate-float-reverse-medium blur-lg" />
+          <div className="absolute h-28 w-28 bg-indigo-800/20 rounded-full top-2/3 right-1/3 animate-float-slow blur-lg" />
+          
+          {/* Small particles */}
+          <div className="absolute h-16 w-16 bg-blue-700/20 rounded-full bottom-1/4 right-1/2 animate-float-fast blur-md" />
+          <div className="absolute h-12 w-12 bg-purple-700/20 rounded-full top-1/2 left-2/3 animate-float-reverse-fast blur-md" />
+          <div className="absolute h-14 w-14 bg-indigo-700/20 rounded-full bottom-2/3 right-2/3 animate-float-medium blur-md" />
         </div>
 
         {/* Content */}
@@ -380,10 +411,22 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             />
           </div>
           <div 
-            key={timeKey}
-            className="text-6xl font-bold text-gray-100 animate-time-flip perspective"
+            className="text-6xl font-bold text-gray-100 flex justify-center items-center space-x-1"
           >
-            {currentTime}
+            {currentTimeChars.map((char, index) => {
+              const prevChar = prevTimeChars[index];
+              const hasChanged = char !== prevChar;
+              return (
+                <span
+                  key={`${timeKey}-${index}`}
+                  className={`inline-block transition-all duration-300 ${
+                    hasChanged ? 'animate-digit-change' : ''
+                  }`}
+                >
+                  {char}
+                </span>
+              );
+            })}
           </div>
           <div className={`text-xl transition-colors duration-1000
             ${isNightMode ? 'text-gray-500' : 'text-gray-400'} animate-fade-in-delay`}>
