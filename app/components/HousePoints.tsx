@@ -94,11 +94,13 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if current time is between 4:30pm and 7:30am
+  // Modified to show display 5 minutes before opening time to preload data
   const isOutsideFetchingHours = useCallback(() => {
     const now = new Date();
+    
     // Create start and end times for today
     const morningStart = new Date(now);
-    morningStart.setHours(7, 30, 0, 0); // 7:30 AM
+    morningStart.setHours(7, 25, 0, 0); // 7:25 AM (5 minutes before official opening)
 
     const eveningEnd = new Date(now);
     eveningEnd.setHours(16, 30, 0, 0); // 4:30 PM
