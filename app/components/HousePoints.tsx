@@ -89,21 +89,21 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMouse, setShowMouse] = useState(true);
 
-  // Check if current time is between 6pm and 7:30am
+  // Check if current time is between 4:30pm and 7:30am
   const isOutsideFetchingHours = useCallback(() => {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
     
-    // After 6pm or before 7:30am
-    return hours >= 18 || (hours < 7 || (hours === 7 && minutes < 30));
+    // After 4:30pm or before 7:30am
+    return (hours > 16 || (hours === 16 && minutes >= 30)) || (hours < 7 || (hours === 7 && minutes < 30));
   }, []);
 
   const fetchData = useCallback(async () => {
     // Don't fetch if outside fetching hours
     if (isOutsideFetchingHours()) {
-      console.log('Outside fetching hours (6pm-7:30am), skipping fetch');
-      setNextRefresh(60); // Check again in 1 minute
+      console.log('Outside fetching hours (4:30pm-7:30am), skipping fetch');
+      setNextRefresh(30 * 60); // Check again in 30 minutes
       return;
     }
 
@@ -169,7 +169,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       if (newData.houses.length > 0) {
         setData(newData);
         setLastUpdate(Date.now());
-        setNextRefresh(15 * 60); // Reset to 15 minutes
+        setNextRefresh(15 * 60); // Reset to 15 minutes during active hours
         setError(null);
       } else {
         throw new Error('No house data available');
@@ -279,6 +279,62 @@ export default function HousePoints({ initialData }: HousePointsProps) {
 
   // Calculate total points
   const totalPoints = data.houses.reduce((sum, house) => sum + house.points, 0);
+
+  // Check if display should be hidden
+  const shouldHideDisplay = useCallback(() => {
+    // Check if outside fetching hours
+    if (isOutsideFetchingHours()) return true;
+    
+    // Check if display is explicitly disabled
+    if (data.displayEnabled === false) return true;
+    
+    // Check if we have no valid data
+    if (!data.houses || data.houses.length === 0) return true;
+    
+    return false;
+  }, [data, isOutsideFetchingHours]);
+
+  // Format current time
+  const formatCurrentTime = useCallback(() => {
+    const now = new Date();
+    return now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  }, []);
+
+  // Update time every second
+  const [currentTime, setCurrentTime] = useState(formatCurrentTime());
+  useEffect(() => {
+    const timeInterval = setInterval(() => {
+      setCurrentTime(formatCurrentTime());
+    }, 1000);
+    return () => clearInterval(timeInterval);
+  }, [formatCurrentTime]);
+
+  if (shouldHideDisplay()) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
+        <div className="text-center space-y-8">
+          <Image
+            src="/bancroftlogo.svg"
+            alt="Bancroft School"
+            width={200}
+            height={200}
+            className="mx-auto"
+            priority
+          />
+          <div className="text-6xl font-bold text-gray-100">
+            {currentTime}
+          </div>
+          <div className="text-xl text-gray-400">
+            Hey... You aren't supposed to see this.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 

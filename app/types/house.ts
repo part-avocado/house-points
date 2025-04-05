@@ -20,4 +20,5 @@ export interface HouseData {
   lastInputs: LastInput[];
   topContributors: TopContributor[];
   message?: string; // Optional message field
+  displayEnabled?: boolean; // From cell H24
 } 
