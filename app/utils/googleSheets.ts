@@ -37,7 +37,7 @@ export async function getHouseData(): Promise<HouseData> {
       spreadsheetId: SPREADSHEET_ID,
       ranges: Object.values(RANGES),
       majorDimension: 'ROWS',
-      valueRenderOption: 'UNFORMATTED_VALUE',
+      valueRenderOption: 'FORMATTED_VALUE', // Changed to get string values
     });
 
     const [
@@ -60,11 +60,11 @@ export async function getHouseData(): Promise<HouseData> {
 
     // Process last inputs (now includes house and points in the same request)
     const lastInputs = (lastInputsData?.values || [])
-      .filter(row => row[0] && row[0].trim() !== '') // Filter out empty rows
+      .filter(row => row[0] && String(row[0]).trim() !== '') // Convert to string before trimming
       .map(row => ({
-        timestamp: row[0],
-        house: row[2] || '', // Column C
-        points: parseInt(row[3] || '0', 10), // Column D
+        timestamp: String(row[0]), // Ensure timestamp is a string
+        house: String(row[2] || ''), // Ensure house is a string
+        points: parseInt(String(row[3] || '0'), 10), // Convert to string before parsing
       }))
       .slice(-3) // Take last 3 rows
       .reverse(); // Reverse to get newest first
@@ -72,8 +72,11 @@ export async function getHouseData(): Promise<HouseData> {
     // Process contributors
     const contributorPoints = new Map<string, number>();
     (contributorsData?.values || []).forEach(row => {
-      const [name, points] = row;
-      if (name && name.trim() !== '' && !isNaN(points) && points > 0) {
+      if (!row[0]) return; // Skip if no name
+      const name = String(row[0]).trim();
+      const points = parseInt(String(row[1] || '0'), 10);
+      
+      if (name !== '' && !isNaN(points) && points > 0) {
         const currentPoints = contributorPoints.get(name) || 0;
         contributorPoints.set(name, currentPoints + points);
       }
@@ -88,13 +91,13 @@ export async function getHouseData(): Promise<HouseData> {
       .slice(0, 5);
 
     // Process message
-    const message = messageData?.values?.[0]?.[0];
+    const message = messageData?.values?.[0]?.[0] ? String(messageData.values[0][0]) : undefined;
 
     return {
       houses,
       lastInputs,
       topContributors,
-      message: message || undefined,
+      message,
     };
   } catch (error) {
     console.error('Error fetching house data:', error);
