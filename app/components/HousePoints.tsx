@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { House, HouseData } from '../types/house';
 import Image from 'next/image';
 import { SpeedInsights } from "@vercel/speed-insights/next"
@@ -88,7 +88,10 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMouse, setShowMouse] = useState(true);
-  const [forceDisplay, setForceDisplay] = useState<boolean | null>(null); // null = auto, true = force show, false = force hide
+  
+  // Remove forceDisplay and displayMode states
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if current time is between 4:30pm and 7:30am
   const isOutsideFetchingHours = useCallback(() => {
@@ -105,14 +108,8 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   }, []);
 
   const fetchData = useCallback(async () => {
-    // Don't fetch if display is forced off
-    if (forceDisplay === false) {
-      console.log('Display forced OFF, skipping fetch');
-      return;
-    }
-
-    // Only fetch if we're in fetching hours OR if display is forced on
-    if (isOutsideFetchingHours() && forceDisplay !== true) {
+    // Only fetch if we're in fetching hours
+    if (isOutsideFetchingHours()) {
       console.log('Outside fetching hours (4:30pm-7:30am), skipping fetch');
       setNextRefresh(30 * 60); // Check again in 30 minutes
       return;
@@ -134,7 +131,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const newData = await response.json();
+        const newData = await response.json();
       
       // Basic structure validation
       if (!newData || typeof newData !== 'object') {
@@ -180,8 +177,8 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       if (newData.houses.length > 0) {
         setData(newData);
         setLastUpdate(Date.now());
-        // Always set to 15 minutes if display is forced on, otherwise use time-based logic
-        setNextRefresh(forceDisplay === true ? 15 * 60 : (isOutsideFetchingHours() ? 30 * 60 : 15 * 60));
+        // Set refresh interval based on time
+        setNextRefresh(isOutsideFetchingHours() ? 30 * 60 : 15 * 60);
         setError(null);
       } else {
         throw new Error('No house data available');
@@ -194,7 +191,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [isOutsideFetchingHours, forceDisplay]);
+  }, [isOutsideFetchingHours]);
 
   // Format the countdown display
   const formatCountdown = useCallback((seconds: number) => {
@@ -232,9 +229,6 @@ export default function HousePoints({ initialData }: HousePointsProps) {
 
   // Check if display should be hidden
   const shouldHideDisplay = useCallback(() => {
-    // If force display is set, use that value
-    if (forceDisplay !== null) return !forceDisplay;
-    
     // Check if outside fetching hours
     if (isOutsideFetchingHours()) return true;
     
@@ -242,7 +236,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     if (!data.houses || data.houses.length === 0) return true;
     
     return false;
-  }, [data, isOutsideFetchingHours, forceDisplay]);
+  }, [data, isOutsideFetchingHours]);
 
   // Format current time with proper timezone handling
   const formatCurrentTime = useCallback(() => {
@@ -353,63 +347,55 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     return 60 * 60; // 1 hour in seconds
   }, []);
 
-  useEffect(() => {
-    // Set initial force display state based on current time
-    const initialForceDisplay = isOutsideFetchingHours() ? false : null;
-    setForceDisplay(initialForceDisplay);
+  // Clear all intervals helper function
+  const clearAllIntervals = useCallback(() => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
     
-    // Initial fetch only if not forced off
-    if (initialForceDisplay !== false) {
+    if (checkIntervalRef.current) {
+      clearInterval(checkIntervalRef.current);
+      checkIntervalRef.current = null;
+    }
+  }, []);
+  
+  // Setup intervals based on current state
+  const setupIntervals = useCallback(() => {
+    // Clear existing intervals
+    clearAllIntervals();
+
+    // Determine the refresh interval based on time
+    const getRefreshInterval = () => {
+      return isOutsideFetchingHours() ? 30 * 60 : 15 * 60;
+    };
+
+    // Set initial refresh interval
+    const interval = getRefreshInterval();
+    setNextRefresh(interval);
+
+    // Set up the countdown interval
+    countdownIntervalRef.current = setInterval(() => {
+      setNextRefresh(prev => {
+        if (prev <= 0) {
+          if (!isLoading) {
+            fetchData();
+          }
+          return getRefreshInterval();
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    // Set up the check interval
+    checkIntervalRef.current = setInterval(fetchData, interval * 1000);
+  }, [isOutsideFetchingHours, fetchData, isLoading, clearAllIntervals]);
+
+  useEffect(() => {
+    // Initial fetch if in fetching hours
+    if (!isOutsideFetchingHours()) {
       fetchData();
     }
-
-    let countdownInterval: NodeJS.Timeout;
-    let checkInterval: NodeJS.Timeout;
-
-    const setupIntervals = () => {
-      // Clear existing intervals
-      if (countdownInterval) clearInterval(countdownInterval);
-      if (checkInterval) clearInterval(checkInterval);
-
-      // If display is forced off, just set up countdown without fetching
-      if (forceDisplay === false) {
-        setNextRefresh(30 * 60); // 30 minutes
-        countdownInterval = setInterval(() => {
-          setNextRefresh(prev => prev > 0 ? prev - 1 : 30 * 60);
-        }, 1000);
-        return;
-      }
-
-      // Determine the refresh interval based on display state
-      const getRefreshInterval = () => {
-        if (forceDisplay === true) {
-          return 15 * 60; // 15 minutes when forced on
-        }
-        return isOutsideFetchingHours() ? 30 * 60 : 15 * 60;
-      };
-
-      // Set initial refresh interval
-      const interval = getRefreshInterval();
-      setNextRefresh(interval);
-
-      // Set up the countdown interval
-      countdownInterval = setInterval(() => {
-        setNextRefresh(prev => {
-          if (prev <= 0) {
-            if (!isLoading && (forceDisplay === true || !isOutsideFetchingHours())) {
-              fetchData();
-            }
-            return getRefreshInterval();
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      // Set up the check interval only if not forced off
-      if (forceDisplay === true || !isOutsideFetchingHours()) {
-        checkInterval = setInterval(fetchData, interval * 1000);
-      }
-    };
 
     // Set up initial intervals
     setupIntervals();
@@ -427,46 +413,15 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       // Force data reload (Ctrl + B)
       if (e.ctrlKey && e.key.toLowerCase() === 'b') {
         e.preventDefault();
-        // Only allow force reload if not forced off
-        if (!isLoading && forceDisplay !== false) {
+        if (!isLoading) {
           console.log('Forcing data reload...');
           fetchData();
         } else {
-          console.log('Skipping force reload - display forced off or already loading');
+          console.log('Skipping force reload - already loading');
         }
       }
-
-      // Toggle force display (Ctrl + L)
-      if (e.ctrlKey && e.key.toLowerCase() === 'l') {
-        e.preventDefault();
-        setForceDisplay(prev => {
-          // If we're in auto mode (null), toggle based on current state
-          if (prev === null) {
-            const newValue = !shouldHideDisplay();
-            console.log(`Switching from auto to ${newValue ? 'ON' : 'OFF'}`);
-            
-            // If switching to ON, fetch data immediately
-            if (newValue && !isLoading) {
-              console.log('Switching to ON - fetching fresh data');
-              fetchData();
-            }
-            
-            return newValue;
-          }
-          
-          // If we're in a forced state, toggle it
-          const newValue = !prev;
-          console.log(`Toggling display from ${prev ? 'ON' : 'OFF'} to ${newValue ? 'ON' : 'OFF'}`);
-          
-          // If switching to ON, fetch data immediately
-          if (newValue && !isLoading) {
-            console.log('Switching to ON - fetching fresh data');
-            fetchData();
-          }
-          
-          return newValue;
-        });
-      }
+      
+      // Removed Control + L handler
     };
 
     // Handle fullscreen change
@@ -481,16 +436,17 @@ export default function HousePoints({ initialData }: HousePointsProps) {
 
     // Cleanup
     return () => {
-      if (checkInterval) clearInterval(checkInterval);
-      if (countdownInterval) clearInterval(countdownInterval);
+      clearAllIntervals();
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [fetchData, toggleFullscreen, isFullscreen, shouldHideDisplay, forceDisplay, isOutsideFetchingHours]);
+  }, [fetchData, toggleFullscreen, isFullscreen, shouldHideDisplay, 
+      isOutsideFetchingHours, setupIntervals, clearAllIntervals]);
 
   // Calculate total points
   const totalPoints = data.houses.reduce((sum, house) => sum + house.points, 0);
 
+  // Use shouldHideDisplay to determine what to render
   if (shouldHideDisplay()) {
     const isNightMode = isLateNight();
     
@@ -574,18 +530,18 @@ export default function HousePoints({ initialData }: HousePointsProps) {
           {/* Left Column - Rankings */}
           <div className="space-y-4">
             {data.houses.map((house, index) => (
-              <div
+                <div
                 key={`${house.name}-${house.points}-${lastUpdate}`}
                 className="rounded-lg p-4 sm:p-6 text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl flex items-center backdrop-blur-sm bg-opacity-95"
-                style={{ backgroundColor: house.color }}
-              >
+                  style={{ backgroundColor: house.color }}
+                >
                 <div className="text-3xl sm:text-4xl font-bold mr-4 sm:mr-6 w-10 sm:w-12">#{index + 1}</div>
-                <div className="flex-grow">
+                  <div className="flex-grow">
                   <h3 className="text-xl sm:text-2xl font-bold">{house.name}</h3>
                 </div>
                 <div className="text-3xl sm:text-4xl font-bold">{house.points}</div>
-              </div>
-            ))}
+                </div>
+              ))}
           </div>
 
           {/* Right Column - Stats */}
