@@ -27,9 +27,9 @@ module.exports = {
             opacity: '1'
           },
           '50%': { 
-            transform: 'scale(1.1)',
-            filter: 'blur(0.5px)',
-            opacity: '0.8'
+            transform: 'scale(1.05)',
+            filter: 'blur(0.3px)',
+            opacity: '0.9'
           },
           '100%': { 
             transform: 'scale(1)',

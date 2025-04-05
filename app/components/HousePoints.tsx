@@ -240,14 +240,24 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     return false;
   }, [data, isOutsideFetchingHours, forceDisplay]);
 
-  // Format current time
+  // Format current time with proper timezone handling
   const formatCurrentTime = useCallback(() => {
     const now = new Date();
-    return now.toLocaleTimeString('en-US', {
+    // Get the timezone abbreviation (EST/EDT)
+    const timeZone = now.toLocaleTimeString('en-US', {
+      timeZone: 'America/New_York',
+      timeZoneName: 'short'
+    }).split(' ')[2];
+    
+    const time = now.toLocaleTimeString('en-US', {
+      timeZone: 'America/New_York',
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
     });
+    
+    // Format as "HH:MM AM/PM EDT"
+    return `${time} ${timeZone}`;
   }, []);
 
   // Check if it's late night (10pm-5am)
@@ -411,16 +421,20 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             />
           </div>
           <div 
-            className="text-6xl font-bold text-gray-100 flex justify-center items-center space-x-1"
+            className="text-6xl font-bold text-gray-100 flex justify-center items-center"
           >
             {currentTimeChars.map((char, index) => {
               const prevChar = prevTimeChars[index];
               const hasChanged = char !== prevChar;
+              const isSpaceOrColon = char === ' ' || char === ':';
+              const isTimezone = index >= currentTimeChars.length - 3; // EDT/EST characters
               return (
                 <span
                   key={`${timeKey}-${index}`}
-                  className={`inline-block transition-all duration-500 ease-in-out ${
-                    hasChanged ? 'animate-digit-change' : ''
+                  className={`inline-block transition-all duration-1000 ease-in-out ${
+                    hasChanged && !isSpaceOrColon ? 'animate-digit-change' : ''
+                  } ${isSpaceOrColon ? 'mx-1 opacity-70' : ''} ${
+                    isTimezone ? 'text-3xl opacity-60 ml-2' : ''
                   }`}
                 >
                   {char}
