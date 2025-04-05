@@ -24,14 +24,17 @@ module.exports = {
           '0%': { 
             transform: 'scale(1)',
             filter: 'blur(0px)',
+            opacity: '1'
           },
           '50%': { 
-            transform: 'scale(1.2)',
-            filter: 'blur(1px)',
+            transform: 'scale(1.1)',
+            filter: 'blur(0.5px)',
+            opacity: '0.8'
           },
           '100%': { 
             transform: 'scale(1)',
             filter: 'blur(0px)',
+            opacity: '1'
           }
         },
         'time-change': {
@@ -46,22 +49,22 @@ module.exports = {
         },
         'float-xl': {
           '0%': { transform: 'translate(0, 0)' },
-          '50%': { transform: 'translate(40px, 40px)' },
+          '50%': { transform: 'translate(100px, 100px)' },
           '100%': { transform: 'translate(0, 0)' },
         },
         'float-large': {
           '0%': { transform: 'translate(0, 0)' },
-          '50%': { transform: 'translate(30px, 30px)' },
+          '50%': { transform: 'translate(80px, 80px)' },
           '100%': { transform: 'translate(0, 0)' },
         },
         'float-medium': {
           '0%': { transform: 'translate(0, 0)' },
-          '50%': { transform: 'translate(20px, 20px)' },
+          '50%': { transform: 'translate(60px, 60px)' },
           '100%': { transform: 'translate(0, 0)' },
         },
         'float-fast': {
           '0%': { transform: 'translate(0, 0)' },
-          '50%': { transform: 'translate(15px, 15px)' },
+          '50%': { transform: 'translate(40px, 40px)' },
           '100%': { transform: 'translate(0, 0)' },
         },
       },
@@ -74,14 +77,14 @@ module.exports = {
         'fade-in-delay': 'fade-in 1s ease-out 0.5s forwards',
         'digit-change': 'digit-change 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         'time-flip': 'time-flip 0.5s ease-in-out',
-        'float-xl': 'float-xl 20s ease-in-out infinite',
-        'float-reverse-xl': 'float-xl 20s ease-in-out infinite reverse',
-        'float-large': 'float-large 15s ease-in-out infinite',
-        'float-medium': 'float-medium 12s ease-in-out infinite',
-        'float-reverse-medium': 'float-medium 12s ease-in-out infinite reverse',
-        'float-fast': 'float-fast 8s ease-in-out infinite',
-        'float-reverse-fast': 'float-fast 8s ease-in-out infinite reverse',
-        'float-slow': 'float-large 18s ease-in-out infinite',
+        'float-xl': 'float-xl 12s ease-in-out infinite',
+        'float-reverse-xl': 'float-xl 12s ease-in-out infinite reverse',
+        'float-large': 'float-large 10s ease-in-out infinite',
+        'float-medium': 'float-medium 8s ease-in-out infinite',
+        'float-reverse-medium': 'float-medium 8s ease-in-out infinite reverse',
+        'float-fast': 'float-fast 6s ease-in-out infinite',
+        'float-reverse-fast': 'float-fast 6s ease-in-out infinite reverse',
+        'float-slow': 'float-large 14s ease-in-out infinite',
       },
       backgroundSize: {
         '400%': '400% 400%',

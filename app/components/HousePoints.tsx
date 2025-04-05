@@ -381,20 +381,20 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         {/* Floating particles */}
         <div className={`absolute inset-0 transition-opacity duration-1000 
           ${isNightMode ? 'opacity-20' : 'opacity-40'}`}>
-          {/* Large slow particles */}
-          <div className="absolute h-32 w-32 bg-blue-900/20 rounded-full -top-16 left-1/4 animate-float-xl blur-xl" />
-          <div className="absolute h-40 w-40 bg-purple-900/20 rounded-full top-1/3 -right-20 animate-float-reverse-xl blur-xl" />
-          <div className="absolute h-36 w-36 bg-indigo-900/20 rounded-full -bottom-20 left-1/3 animate-float-large blur-xl" />
+          {/* Extra large particles */}
+          <div className="absolute h-96 w-96 bg-blue-600/20 rounded-full -top-48 -left-24 animate-float-fast blur-[100px]" />
+          <div className="absolute h-[500px] w-[500px] bg-purple-500/20 rounded-full top-1/3 -right-48 animate-float-reverse-fast blur-[120px]" />
+          <div className="absolute h-[600px] w-[600px] bg-emerald-500/20 rounded-full -bottom-64 left-1/4 animate-float-medium blur-[150px]" />
+          
+          {/* Large particles */}
+          <div className="absolute h-80 w-80 bg-pink-500/20 rounded-full top-1/4 right-1/4 animate-float-fast blur-[80px]" />
+          <div className="absolute h-72 w-72 bg-amber-500/20 rounded-full bottom-1/3 left-1/4 animate-float-reverse-fast blur-[90px]" />
+          <div className="absolute h-64 w-64 bg-cyan-500/20 rounded-full top-2/3 right-1/3 animate-float-medium blur-[70px]" />
           
           {/* Medium particles */}
-          <div className="absolute h-24 w-24 bg-blue-800/20 rounded-full top-1/4 right-1/4 animate-float-medium blur-lg" />
-          <div className="absolute h-20 w-20 bg-purple-800/20 rounded-full bottom-1/3 left-1/4 animate-float-reverse-medium blur-lg" />
-          <div className="absolute h-28 w-28 bg-indigo-800/20 rounded-full top-2/3 right-1/3 animate-float-slow blur-lg" />
-          
-          {/* Small particles */}
-          <div className="absolute h-16 w-16 bg-blue-700/20 rounded-full bottom-1/4 right-1/2 animate-float-fast blur-md" />
-          <div className="absolute h-12 w-12 bg-purple-700/20 rounded-full top-1/2 left-2/3 animate-float-reverse-fast blur-md" />
-          <div className="absolute h-14 w-14 bg-indigo-700/20 rounded-full bottom-2/3 right-2/3 animate-float-medium blur-md" />
+          <div className="absolute h-48 w-48 bg-indigo-500/20 rounded-full bottom-1/4 right-1/2 animate-float-fast blur-[60px]" />
+          <div className="absolute h-56 w-56 bg-rose-500/20 rounded-full top-1/2 left-2/3 animate-float-reverse-fast blur-[65px]" />
+          <div className="absolute h-40 w-40 bg-teal-500/20 rounded-full bottom-2/3 right-2/3 animate-float-medium blur-[50px]" />
         </div>
 
         {/* Content */}
@@ -419,7 +419,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
               return (
                 <span
                   key={`${timeKey}-${index}`}
-                  className={`inline-block transition-all duration-300 ${
+                  className={`inline-block transition-all duration-500 ease-in-out ${
                     hasChanged ? 'animate-digit-change' : ''
                   }`}
                 >
