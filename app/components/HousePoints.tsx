@@ -429,12 +429,16 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         setForceDisplay(prev => {
           const newValue = prev === null ? !shouldHideDisplay() : !prev;
           console.log(`Display mode: ${newValue ? 'Forced ON' : 'Forced OFF'}`);
-          // Update refresh timer when toggling force display
+          
+          // If forcing display on, fetch data immediately
           if (newValue) {
+            console.log('Forcing display ON - fetching fresh data');
+            fetchData();
             setNextRefresh(15 * 60); // Set to 15 minutes when forcing display on
           } else {
             setNextRefresh(getNextCheckInterval());
           }
+          
           setupIntervals(); // Reset intervals based on new state
           return newValue;
         });
