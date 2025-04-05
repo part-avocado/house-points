@@ -384,22 +384,34 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm">
               <h2 className="text-lg sm:text-xl font-bold mb-4 dark:text-white">Latest Activity</h2>
               <div className="space-y-3">
-                {data.lastInputs.map((input, index) => (
-                  <div 
-                    key={`${input.house}-${input.points}-${input.timestamp}-${lastUpdate}`}
-                    className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs sm:text-sm"
-                  >
-                    <span className="font-bold text-blue-600 dark:text-blue-400 w-12 sm:w-14">
-                      +{input.points}
-                    </span>
-                    <span className="text-gray-600 dark:text-gray-300 truncate">
-                      to {input.house}
-                    </span>
-                    <span className="text-gray-400 dark:text-gray-500 text-right">
-                      {formatTimeAgo(input.timestamp)}
-                    </span>
-                  </div>
-                ))}
+                {data.lastInputs
+                  // Filter out duplicates while keeping the most recent one
+                  .filter((input, index, self) => 
+                    index === self.findIndex(t => (
+                      t.house === input.house && 
+                      t.points === input.points &&
+                      // Consider entries within 1 second as duplicates
+                      Math.abs(new Date(t.timestamp).getTime() - new Date(input.timestamp).getTime()) < 1000
+                    ))
+                  )
+                  // Only show first 3 unique entries
+                  .slice(0, 3)
+                  .map((input, index) => (
+                    <div 
+                      key={`${input.house}-${input.points}-${input.timestamp}-${lastUpdate}`}
+                      className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs sm:text-sm"
+                    >
+                      <span className="font-bold text-blue-600 dark:text-blue-400 w-12 sm:w-14">
+                        +{input.points}
+                      </span>
+                      <span className="text-gray-600 dark:text-gray-300 truncate">
+                        to {input.house}
+                      </span>
+                      <span className="text-gray-400 dark:text-gray-500 text-right">
+                        {formatTimeAgo(input.timestamp)}
+                      </span>
+                    </div>
+                  ))}
               </div>
             </div>
 
