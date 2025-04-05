@@ -419,12 +419,15 @@ export default function HousePoints({ initialData }: HousePointsProps) {
               const prevChar = prevTimeChars[index];
               const hasChanged = char !== prevChar;
               const isSpaceOrColon = char === ' ' || char === ':';
+              const isPeriod = char === 'A' || char === 'P';
               return (
                 <span
                   key={`${timeKey}-${index}`}
                   className={`inline-block transition-all duration-1000 ease-in-out ${
                     hasChanged && !isSpaceOrColon ? 'animate-digit-change' : ''
-                  } ${isSpaceOrColon ? 'mx-1 opacity-70' : ''}`}
+                  } ${isSpaceOrColon ? 'mx-1 opacity-70' : ''} ${
+                    isPeriod ? 'ml-3' : ''
+                  } ${char === ':' ? '-mt-1' : ''}`}
                 >
                   {char}
                 </span>
@@ -433,7 +436,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
           </div>
           <div className={`text-xl transition-colors duration-1000
             ${isNightMode ? 'text-gray-500' : 'text-gray-400'} animate-fade-in-delay`}>
-            Oh no. This wasn't supposed to happen.
+            Nothing is really happening right now. :)
           </div>
         </div>
       </div>
