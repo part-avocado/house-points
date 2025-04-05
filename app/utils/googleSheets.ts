@@ -4,7 +4,6 @@ import { House, HouseData } from '../types/house';
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID || '';
 const TOTAL_POINTS_RANGE = 'G2';
 const MESSAGE_RANGE = 'H21'; // Add message range
-const DISPLAY_ENABLED_RANGE = 'H24'; // Add display control range
 const HOUSE_POINTS_RANGES = [
   { name: 'Newton Hill', range: 'I2' },
   { name: 'Green Hill', range: 'I3' },
@@ -43,7 +42,7 @@ export async function getHouseData(): Promise<HouseData> {
     const sheets = google.sheets({ version: 'v4', auth });
     
     // Get all data in parallel
-    const [totalPointsResponse, housePointsResponse, lastInputsResponse, contributorsResponse, messageResponse, displayEnabledResponse] = await Promise.all([
+    const [totalPointsResponse, housePointsResponse, lastInputsResponse, contributorsResponse, messageResponse] = await Promise.all([
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
         range: TOTAL_POINTS_RANGE,
@@ -63,10 +62,6 @@ export async function getHouseData(): Promise<HouseData> {
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
         range: MESSAGE_RANGE,
-      }),
-      sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: DISPLAY_ENABLED_RANGE,
       }),
     ]);
 
@@ -136,18 +131,14 @@ export async function getHouseData(): Promise<HouseData> {
     // Get message from H21
     const message = messageResponse.data.values?.[0]?.[0];
 
-    // Get display enabled status from H24
-    const displayEnabled = displayEnabledResponse.data.values?.[0]?.[0]?.toLowerCase() !== 'false';
-
     return {
       houses: houses.sort((a, b) => b.points - a.points), // Sort by points in descending order
       lastInputs: lastInputsWithDetails,
       topContributors,
       message: message || undefined, // Only include message if it exists
-      displayEnabled
     };
   } catch (error) {
     console.error('Error fetching house data:', error);
-    return { houses: [], lastInputs: [], topContributors: [], message: undefined, displayEnabled: false };
+    return { houses: [], lastInputs: [], topContributors: [], message: undefined };
   }
 } 

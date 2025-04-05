@@ -232,9 +232,6 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     // Check if outside fetching hours
     if (isOutsideFetchingHours()) return true;
     
-    // Check if display is explicitly disabled
-    if (data.displayEnabled === false) return true;
-    
     // Check if we have no valid data
     if (!data.houses || data.houses.length === 0) return true;
     
@@ -364,11 +361,18 @@ export default function HousePoints({ initialData }: HousePointsProps) {
 
       // If display is forced on or during normal hours, use standard refresh logic
       if (forceDisplay === true || !isOutsideFetchingHours()) {
-        checkInterval = setInterval(fetchData, 15 * 60 * 1000); // 15 minutes
+        // Don't set up a new interval if one is pending
+        if (!isLoading) {
+          checkInterval = setInterval(fetchData, 15 * 60 * 1000); // 15 minutes
+        }
+        
         countdownInterval = setInterval(() => {
           setNextRefresh(prev => {
             if (prev <= 0) {
-              fetchData();
+              // Only fetch if not already loading
+              if (!isLoading) {
+                fetchData();
+              }
               return 15 * 60; // Reset to 15 minutes
             }
             return prev - 1;
@@ -384,12 +388,19 @@ export default function HousePoints({ initialData }: HousePointsProps) {
           if (checkInterval) clearInterval(checkInterval);
           if (countdownInterval) clearInterval(countdownInterval);
           
-          checkInterval = setInterval(runTimeCheck, interval * 1000);
+          // Only set up new fetch interval if not loading
+          if (!isLoading) {
+            checkInterval = setInterval(runTimeCheck, interval * 1000);
+          }
+          
           countdownInterval = setInterval(() => {
             setNextRefresh(prev => {
               if (prev <= 0) {
-                const newInterval = getNextCheckInterval();
-                return newInterval;
+                // Only fetch if not already loading
+                if (!isLoading) {
+                  const newInterval = getNextCheckInterval();
+                  return newInterval;
+                }
               }
               return prev - 1;
             });
@@ -417,10 +428,15 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       // Force data reload (Ctrl + B)
       if (e.ctrlKey && e.key.toLowerCase() === 'b') {
         e.preventDefault();
-        console.log('Forcing data reload...');
-        fetchData();
-        // Set refresh timer based on forced display state
-        setNextRefresh(forceDisplay === true ? 15 * 60 : getNextCheckInterval());
+        // Only force reload if not already loading
+        if (!isLoading) {
+          console.log('Forcing data reload...');
+          fetchData();
+          // Set refresh timer based on forced display state
+          setNextRefresh(forceDisplay === true ? 15 * 60 : getNextCheckInterval());
+        } else {
+          console.log('Skipping force reload - already loading');
+        }
       }
 
       // Toggle force display (Ctrl + L)
@@ -430,12 +446,12 @@ export default function HousePoints({ initialData }: HousePointsProps) {
           const newValue = prev === null ? !shouldHideDisplay() : !prev;
           console.log(`Display mode: ${newValue ? 'Forced ON' : 'Forced OFF'}`);
           
-          // If forcing display on, fetch data immediately
-          if (newValue) {
+          // If forcing display on, fetch data immediately only if not already loading
+          if (newValue && !isLoading) {
             console.log('Forcing display ON - fetching fresh data');
             fetchData();
             setNextRefresh(15 * 60); // Set to 15 minutes when forcing display on
-          } else {
+          } else if (!newValue) {
             setNextRefresh(getNextCheckInterval());
           }
           
