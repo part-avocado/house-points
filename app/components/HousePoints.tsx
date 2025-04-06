@@ -81,16 +81,65 @@ function validateHouseData(data: any): data is HouseData {
   return true;
 }
 
+function formatRefreshTime(seconds: number): string {
+  if (seconds >= 60) {
+    const minutes = Math.floor(seconds / 60);
+    // Always show only minutes when >= 60 seconds
+    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+  } else if (seconds >= 30) {
+    return `<1 minute`;
+  } else {
+    return `${seconds} ${seconds === 1 ? 'second' : 'seconds'}`;
+  }
+}
+
+// Check if current time is within the no-refresh window (4:30PM - 7:25AM)
+function isInNoRefreshWindow(): boolean {
+  const now = new Date();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  
+  // Convert current time to minutes since midnight for easier comparison
+  const currentTimeInMinutes = hours * 60 + minutes;
+  
+  // Define boundaries in minutes since midnight
+  const eveningCutoff = 16 * 60 + 30; // 4:30PM = 16:30
+  const morningCutoff = 7 * 60 + 25;  // 7:25AM = 7:25
+  
+  // Check if we're after evening cutoff or before morning cutoff
+  return currentTimeInMinutes >= eveningCutoff || currentTimeInMinutes < morningCutoff;
+}
+
+// Format the next refresh time message
+function getRefreshMessage(nextRefresh: number, isLoading: boolean, isInWindow: boolean): string {
+  if (isLoading) {
+    return 'Refreshing...';
+  }
+  
+  if (isInWindow) {
+    return 'Not refreshing until 7:25AM';
+  }
+  
+  return `Next refresh in ${formatRefreshTime(nextRefresh)}`;
+}
+
 export default function HousePoints({ initialData }: HousePointsProps) {
   const [data, setData] = useState<HouseData>(initialData);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [nextRefresh, setNextRefresh] = useState(30);
+  const [nextRefresh, setNextRefresh] = useState(900);
   const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMouse, setShowMouse] = useState(true);
+  const [inNoRefreshWindow, setInNoRefreshWindow] = useState(isInNoRefreshWindow());
 
   const fetchData = useCallback(async () => {
+    // Don't fetch during no-refresh window
+    if (isInNoRefreshWindow()) {
+      setInNoRefreshWindow(true);
+      return;
+    }
+    
     try {
       setIsLoading(true);
       setError(null);
@@ -156,7 +205,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       if (newData.houses.length > 0) {
         setData(newData);
         setLastUpdate(Date.now());
-        setNextRefresh(30);
+        setNextRefresh(900);
         setError(null);
       } else {
         throw new Error('No house data available');
@@ -165,7 +214,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       console.error('Error fetching house data:', err);
       // Keep existing data and show error
       setError('Failed to load data. Retrying...');
-      setNextRefresh(3); // Retry sooner on error
+      setNextRefresh(60); // Retry in 1 minute on error
     } finally {
       setIsLoading(false);
     }
@@ -196,14 +245,62 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   }, []);
 
   useEffect(() => {
-    // Initial fetch
-    fetchData();
+    // Check if we're in the no-refresh window
+    const initialInNoRefreshWindow = isInNoRefreshWindow();
+    setInNoRefreshWindow(initialInNoRefreshWindow);
+    
+    // Initial fetch, only if not in no-refresh window
+    if (!initialInNoRefreshWindow) {
+      fetchData();
+    }
 
-    // Set up intervals
-    const refreshInterval = setInterval(fetchData, 30000);
-    const countdownInterval = setInterval(() => {
-      setNextRefresh(prev => prev > 0 ? prev - 1 : 30);
-    }, 1000);
+    // Set up refresh interval - only active outside the no-refresh window
+    let refreshInterval: NodeJS.Timeout | null = null;
+    
+    if (!initialInNoRefreshWindow) {
+      refreshInterval = setInterval(fetchData, 900000); // 15 minutes
+    }
+    
+    // Set up countdown interval - only active outside the no-refresh window
+    let countdownInterval: NodeJS.Timeout | null = null;
+    
+    if (!initialInNoRefreshWindow) {
+      countdownInterval = setInterval(() => {
+        setNextRefresh(prev => prev > 0 ? prev - 1 : 900);
+      }, 1000);
+    }
+    
+    // Check every minute if we've entered or left the no-refresh window
+    const windowCheckInterval = setInterval(() => {
+      const nowInWindow = isInNoRefreshWindow();
+      
+      if (nowInWindow !== inNoRefreshWindow) {
+        setInNoRefreshWindow(nowInWindow);
+        
+        // Clear existing intervals when window status changes
+        if (refreshInterval) {
+          clearInterval(refreshInterval);
+          refreshInterval = null;
+        }
+        
+        if (countdownInterval) {
+          clearInterval(countdownInterval);
+          countdownInterval = null;
+        }
+        
+        // If we're leaving the no-refresh window (i.e., it's morning)
+        if (!nowInWindow) {
+          // Do an immediate fetch
+          fetchData();
+          
+          // Set up new intervals
+          refreshInterval = setInterval(fetchData, 900000);
+          countdownInterval = setInterval(() => {
+            setNextRefresh(prev => prev > 0 ? prev - 1 : 900);
+          }, 1000);
+        }
+      }
+    }, 60000); // Check every minute
 
     // Handle fullscreen keyboard shortcut
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -240,13 +337,14 @@ export default function HousePoints({ initialData }: HousePointsProps) {
 
     // Cleanup
     return () => {
-      clearInterval(refreshInterval);
-      clearInterval(countdownInterval);
+      if (refreshInterval) clearInterval(refreshInterval);
+      if (countdownInterval) clearInterval(countdownInterval);
+      clearInterval(windowCheckInterval);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [fetchData, toggleFullscreen, isFullscreen]);
+  }, [fetchData, toggleFullscreen, isFullscreen, inNoRefreshWindow]);
 
   // Calculate total points
   const totalPoints = data.houses.reduce((sum, house) => sum + house.points, 0);
@@ -350,7 +448,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             </div>
           )}
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {isLoading ? 'Refreshing...' : `Next refresh in ${nextRefresh}s`}
+            {getRefreshMessage(nextRefresh, isLoading, inNoRefreshWindow)}
             {error && <span className="text-red-500 ml-2">{error}</span>}
           </div>
         </div>

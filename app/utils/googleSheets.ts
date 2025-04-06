@@ -2,8 +2,15 @@ import { google } from 'googleapis';
 import { House, HouseData } from '../types/house';
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID || '';
-const TOTAL_POINTS_RANGE = 'G2';
-const MESSAGE_RANGE = 'H21'; // Add message range
+// Consolidate all ranges into a single request
+const RANGES = {
+  TOTAL_POINTS: 'G2',
+  HOUSE_POINTS: 'I2:I8',
+  INPUTS: 'A2:D100',
+  CONTRIBUTORS: 'L2:M100',
+  MESSAGE: 'H21'
+};
+
 const HOUSE_POINTS_RANGES = [
   { name: 'Newton Hill', range: 'I2' },
   { name: 'Green Hill', range: 'I3' },
@@ -13,8 +20,6 @@ const HOUSE_POINTS_RANGES = [
   { name: 'Union Hill', range: 'I7' },
   { name: 'Chandler Hill', range: 'I8' },
 ];
-const LAST_INPUTS_RANGE = 'A2:A100'; // Read more rows to find last 3 non-empty
-const CONTRIBUTORS_RANGE = 'L2:M100'; // Read contributor names and points from columns L and M
 
 function getHouseColor(house: string): string {
   const colors: { [key: string]: string } = {
@@ -41,34 +46,26 @@ export async function getHouseData(): Promise<HouseData> {
 
     const sheets = google.sheets({ version: 'v4', auth });
     
-    // Get all data in parallel
-    const [totalPointsResponse, housePointsResponse, lastInputsResponse, contributorsResponse, messageResponse] = await Promise.all([
-      sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: TOTAL_POINTS_RANGE,
-      }),
-      sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: 'I2:I8',
-      }),
-      sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: LAST_INPUTS_RANGE,
-      }),
-      sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: CONTRIBUTORS_RANGE,
-      }),
-      sheets.spreadsheets.values.get({
-        spreadsheetId: SPREADSHEET_ID,
-        range: MESSAGE_RANGE,
-      }),
-    ]);
-
-    const totalPoints = parseInt(totalPointsResponse.data.values?.[0]?.[0] || '0', 10);
-    const housePointsValues = housePointsResponse.data.values || [];
-    const lastInputRows = lastInputsResponse.data.values || [];
-    const contributorRows = contributorsResponse.data.values || [];
+    // Get all data in a single API call with multiple ranges
+    const response = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: SPREADSHEET_ID,
+      ranges: [
+        RANGES.TOTAL_POINTS,
+        RANGES.HOUSE_POINTS,
+        RANGES.INPUTS,
+        RANGES.CONTRIBUTORS,
+        RANGES.MESSAGE
+      ],
+    });
+    
+    // Process the responses - they will be in the same order as requested
+    const [totalPointsResponse, housePointsResponse, lastInputsResponse, contributorsResponse, messageResponse] 
+      = response.data.valueRanges || [];
+    
+    const totalPoints = parseInt(totalPointsResponse.values?.[0]?.[0] || '0', 10);
+    const housePointsValues = housePointsResponse.values || [];
+    const lastInputRows = lastInputsResponse.values || [];
+    const contributorRows = contributorsResponse.values || [];
 
     // Create houses array with points from the correct cells
     const houses: House[] = HOUSE_POINTS_RANGES.map((houseConfig, index) => ({
@@ -77,34 +74,20 @@ export async function getHouseData(): Promise<HouseData> {
       color: getHouseColor(houseConfig.name),
     }));
 
-    // Get last 3 non-empty timestamps from column A and reverse the order
-    const lastInputs = lastInputRows
-      .filter(row => row[0] && row[0].trim() !== '') // Filter out empty rows
-      .slice(-3) // Take last 3 rows
+    // Process last inputs data - only include rows that have all required data
+    const lastInputsWithDetails = lastInputRows
+      .filter(row => 
+        row[0] && row[0].trim() !== '' && // Has timestamp
+        row[2] && row[2].trim() !== '' && // Has house name
+        row[3] !== undefined // Has points
+      )
+      .slice(-3) // Take last 3 valid entries
       .reverse() // Reverse to get newest first
       .map(row => ({
         timestamp: row[0], // Column A
-        house: '', // We'll fill these in from the corresponding rows
-        points: 0, // We'll fill these in from the corresponding rows
+        house: row[2] || '', // Column C
+        points: parseInt(row[3] || '0', 10), // Column D
       }));
-
-    // For each timestamp, get the corresponding house and points
-    const lastInputsWithDetails = await Promise.all(
-      lastInputs.map(async (input, index) => {
-        const rowIndex = lastInputRows.findIndex(row => row[0] === input.timestamp) + 2; // +2 because rows are 1-indexed and we start from A2
-        const rowResponse = await sheets.spreadsheets.values.get({
-          spreadsheetId: SPREADSHEET_ID,
-          range: `C${rowIndex}:D${rowIndex}`,
-        });
-        
-        const rowData = rowResponse.data.values?.[0] || [];
-        return {
-          ...input,
-          house: rowData[0] || '', // Column C
-          points: parseInt(rowData[1] || '0', 10), // Column D
-        };
-      })
-    );
 
     // Process contributor data
     const contributorPoints = new Map<string, number>();
@@ -128,8 +111,8 @@ export async function getHouseData(): Promise<HouseData> {
       .sort((a, b) => b.points - a.points)
       .slice(0, 5); // Get top 5 contributors
 
-    // Get message from H21
-    const message = messageResponse.data.values?.[0]?.[0];
+    // Get message
+    const message = messageResponse.values?.[0]?.[0];
 
     return {
       houses: houses.sort((a, b) => b.points - a.points), // Sort by points in descending order
