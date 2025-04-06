@@ -111,9 +111,9 @@ function isInNoRefreshWindow(): boolean {
 }
 
 // Format the next refresh time message
-function getRefreshMessage(nextRefresh: number, isLoading: boolean, isInWindow: boolean): string {
+function getRefreshMessage(nextRefresh: number, isLoading: boolean, isInWindow: boolean, isForceRefreshing: boolean): string {
   if (isLoading) {
-    return 'Refreshing...';
+    return isForceRefreshing ? 'Force refreshing...' : 'Refreshing...';
   }
   
   if (isInWindow) {
@@ -132,16 +132,20 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMouse, setShowMouse] = useState(true);
   const [inNoRefreshWindow, setInNoRefreshWindow] = useState(isInNoRefreshWindow());
+  const [forceRefreshing, setForceRefreshing] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    // Don't fetch during no-refresh window
-    if (isInNoRefreshWindow()) {
+  const fetchData = useCallback(async (force = false) => {
+    // Don't fetch during no-refresh window unless forced
+    if (isInNoRefreshWindow() && !force) {
       setInNoRefreshWindow(true);
       return;
     }
     
     try {
       setIsLoading(true);
+      if (force) {
+        setForceRefreshing(true);
+      }
       setError(null);
       
       // Add timestamp to prevent caching
@@ -217,6 +221,9 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       setNextRefresh(60); // Retry in 1 minute on error
     } finally {
       setIsLoading(false);
+      if (force) {
+        setForceRefreshing(false);
+      }
     }
   }, []); // Remove data dependency to prevent unnecessary re-renders
 
@@ -302,11 +309,19 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       }
     }, 60000); // Check every minute
 
-    // Handle fullscreen keyboard shortcut
+    // Handle keyboard shortcuts
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Fullscreen toggle: Ctrl+K
       if (e.ctrlKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         toggleFullscreen();
+      }
+      
+      // Force refresh: Ctrl+B
+      if (e.ctrlKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        console.log('Force refreshing data...');
+        fetchData(true); // Pass true to force refresh
       }
     };
 
@@ -360,14 +375,24 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             {data.houses.map((house, index) => (
               <div
                 key={`${house.name}-${house.points}-${lastUpdate}`}
-                className="rounded-lg p-4 sm:p-6 text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl flex items-center backdrop-blur-sm bg-opacity-95"
+                className={`rounded-lg p-4 sm:p-6 text-white shadow-lg transition-all flex items-center backdrop-blur-sm bg-opacity-95
+                  ${index === 0 ? 'transform scale-105 shadow-xl border-2 border-yellow-400' : ''}
+                  ${index === 1 ? 'transform scale-[1.03] shadow-lg border-2 border-gray-300' : ''}
+                  ${index === 2 ? 'transform scale-[1.01] shadow-md border-2 border-amber-700' : ''}
+                `}
                 style={{ backgroundColor: house.color }}
               >
-                <div className="text-3xl sm:text-4xl font-bold mr-4 sm:mr-6 w-10 sm:w-12">#{index + 1}</div>
-                <div className="flex-grow">
-                  <h3 className="text-xl sm:text-2xl font-bold">{house.name}</h3>
+                <div className={`mr-4 sm:mr-6 w-10 sm:w-12 ${index < 3 ? 'text-4xl sm:text-5xl' : 'text-3xl sm:text-4xl'} font-bold`}>
+                  #{index + 1}
                 </div>
-                <div className="text-3xl sm:text-4xl font-bold">{house.points}</div>
+                <div className="flex-grow">
+                  <h3 className={`${index === 0 ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl'} font-bold`}>
+                    {house.name}
+                  </h3>
+                </div>
+                <div className={`${index === 0 ? 'text-4xl sm:text-5xl' : 'text-3xl sm:text-4xl'} font-bold`}>
+                  {house.points}
+                </div>
               </div>
             ))}
           </div>
@@ -448,7 +473,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             </div>
           )}
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {getRefreshMessage(nextRefresh, isLoading, inNoRefreshWindow)}
+            {getRefreshMessage(nextRefresh, isLoading, inNoRefreshWindow, forceRefreshing)}
             {error && <span className="text-red-500 ml-2">{error}</span>}
           </div>
         </div>
