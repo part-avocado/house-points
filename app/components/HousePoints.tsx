@@ -133,6 +133,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   const [showMouse, setShowMouse] = useState(true);
   const [inNoRefreshWindow, setInNoRefreshWindow] = useState(isInNoRefreshWindow());
   const [forceRefreshing, setForceRefreshing] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(isInNoRefreshWindow());
 
   const fetchData = useCallback(async (force = false) => {
     // Don't fetch during no-refresh window unless forced
@@ -251,7 +252,16 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     }
   }, []);
 
+  // Function to update dark mode based on time
+  const updateDarkMode = useCallback(() => {
+    const shouldBeDarkMode = isInNoRefreshWindow();
+    setIsDarkMode(shouldBeDarkMode);
+  }, []);
+
   useEffect(() => {
+    // Initial dark mode setting
+    updateDarkMode();
+    
     // Check if we're in the no-refresh window
     const initialInNoRefreshWindow = isInNoRefreshWindow();
     setInNoRefreshWindow(initialInNoRefreshWindow);
@@ -280,6 +290,9 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     // Check every minute if we've entered or left the no-refresh window
     const windowCheckInterval = setInterval(() => {
       const nowInWindow = isInNoRefreshWindow();
+      
+      // Update dark mode when window changes
+      updateDarkMode();
       
       if (nowInWindow !== inNoRefreshWindow) {
         setInNoRefreshWindow(nowInWindow);
@@ -359,16 +372,19 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [fetchData, toggleFullscreen, isFullscreen, inNoRefreshWindow]);
+  }, [fetchData, toggleFullscreen, isFullscreen, inNoRefreshWindow, updateDarkMode]);
 
   // Calculate total points
   const totalPoints = data.houses.reduce((sum, house) => sum + house.points, 0);
 
   return (
     <div 
-      className={`min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 sm:p-8 relative transition-all duration-300 ${!showMouse ? 'cursor-none' : ''}`}
+      className={`min-h-screen transition-all duration-300 ${!showMouse ? 'cursor-none' : ''} 
+        ${isDarkMode 
+          ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white' 
+          : 'bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900'}`}
     >
-      <div className="max-w-7xl mx-auto relative min-h-[calc(100vh-2rem)] sm:min-h-[calc(100vh-4rem)]">
+      <div className="max-w-7xl mx-auto relative min-h-[calc(100vh-2rem)] sm:min-h-[calc(100vh-4rem)] p-4 sm:p-8">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 sm:gap-8 lg:gap-14 px-2 sm:px-4">
           {/* Left Column - Rankings */}
           <div className="space-y-4">
@@ -404,8 +420,8 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             </div>
 
             {/* Last Inputs Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm">
-              <h2 className="text-lg sm:text-xl font-bold mb-4 dark:text-white">Latest Activity</h2>
+            <div className={`rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+              <h2 className={`text-lg sm:text-xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Latest Activity</h2>
               <div className="space-y-3">
                 {data.lastInputs.map((input, index) => (
                   <div 
@@ -415,10 +431,10 @@ export default function HousePoints({ initialData }: HousePointsProps) {
                     <span className="font-bold text-blue-600 dark:text-blue-400 w-12 sm:w-14">
                       +{input.points}
                     </span>
-                    <span className="text-gray-600 dark:text-gray-300 truncate">
+                    <span className={`truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                       to {input.house}
                     </span>
-                    <span className="text-gray-400 dark:text-gray-500 text-right">
+                    <span className={`text-right ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                       {formatTimeAgo(input.timestamp)}
                     </span>
                   </div>
@@ -427,8 +443,8 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             </div>
 
             {/* Top Contributors Card */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm">
-              <h2 className="text-lg sm:text-xl font-bold mb-4 dark:text-white">Top Contributors</h2>
+            <div className={`rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+              <h2 className={`text-lg sm:text-xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Top Contributors</h2>
               <div className="space-y-3">
                 {data.topContributors.map((contributor, index) => (
                   <div 
@@ -438,10 +454,10 @@ export default function HousePoints({ initialData }: HousePointsProps) {
                     <span className="font-bold text-purple-600 dark:text-purple-400 w-6 sm:w-8">
                       #{index + 1}
                     </span>
-                    <span className="text-gray-600 dark:text-gray-300 truncate">
+                    <span className={`truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                       {contributor.email}
                     </span>
-                    <span className="text-gray-600 dark:text-gray-300 font-bold">
+                    <span className={`font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                       {contributor.points}
                     </span>
                   </div>
@@ -466,11 +482,11 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         {/* Message and Refresh Timer - Centered at bottom */}
         <div className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
           {data.message && (
-            <div className="text-xl sm:text-2xl font-medium text-center text-gray-700 dark:text-gray-200">
+            <div className={`text-xl sm:text-2xl font-medium text-center ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
               {data.message}
             </div>
           )}
-          <div className="text-xs text-gray-500 dark:text-gray-400">
+          <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
             {getRefreshMessage(nextRefresh, isLoading, inNoRefreshWindow, forceRefreshing)}
             {error && <span className="text-red-500 ml-2">{error}</span>}
           </div>
