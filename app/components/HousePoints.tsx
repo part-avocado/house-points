@@ -473,16 +473,18 @@ export default function HousePoints({ initialData }: HousePointsProps) {
           />
         </div>
 
-        {/* Message and Refresh Timer - Centered at bottom */}
-        <div className="absolute bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
-          {data.message && (
-            <div className={`text-xl sm:text-2xl font-medium text-center ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
-              {data.message}
+        {/* Message and Refresh Timer - Centered at bottom with safe spacing */}
+        <div className="fixed bottom-0 left-0 right-0 pb-4 sm:pb-8 flex flex-col items-center justify-center gap-2 z-20 pointer-events-none">
+          <div className="max-w-[80%] flex flex-col items-center">
+            {data.message && (
+              <div className={`text-xl sm:text-2xl font-medium text-center mb-2 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'} bg-opacity-80 px-4 py-2 rounded-lg ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
+                {data.message}
+              </div>
+            )}
+            <div className={`text-xs px-3 py-1 rounded-full ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-white text-gray-500'} shadow-md`}>
+              {getRefreshMessage(nextRefresh, isLoading, inNoRefreshWindow, forceRefreshing)}
+              {error && <span className="text-red-500 ml-2">{error}</span>}
             </div>
-          )}
-          <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            {getRefreshMessage(nextRefresh, isLoading, inNoRefreshWindow, forceRefreshing)}
-            {error && <span className="text-red-500 ml-2">{error}</span>}
           </div>
         </div>
       </div>
