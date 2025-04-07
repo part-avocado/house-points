@@ -369,9 +369,9 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       className={`min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 sm:p-8 relative transition-all duration-300 ${!showMouse ? 'cursor-none' : ''}`}
     >
       <div className="max-w-7xl mx-auto relative min-h-[calc(100vh-2rem)] sm:min-h-[calc(100vh-4rem)]">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 sm:gap-8 lg:gap-14">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 sm:gap-8 lg:gap-14 px-2 sm:px-4">
           {/* Left Column - Rankings */}
-          <div className="space-y-4 px-2 sm:px-4">
+          <div className="space-y-4">
             {data.houses.map((house, index) => (
               <div
                 key={`${house.name}-${house.points}-${lastUpdate}`}
@@ -396,7 +396,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
           </div>
 
           {/* Right Column - Stats */}
-          <div className="lg:w-80 space-y-4 px-2 sm:px-4 ml-auto">
+          <div className="lg:w-80 space-y-4 ml-auto">
             {/* Total Points Card */}
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-4 sm:p-6 shadow-lg sticky top-4 sm:top-8 backdrop-blur-sm">
               <h2 className="text-lg sm:text-xl font-bold mb-2">Total Points Awarded</h2>
