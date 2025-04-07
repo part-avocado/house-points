@@ -443,9 +443,10 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             {/* Last Inputs Card */}
             <div className={`rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
               <h2 className={`text-lg sm:text-xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Latest Activity</h2>
-              <div className="space-y-3 overflow-hidden h-[120px]">
+              <div className="relative h-[120px] overflow-hidden">
                 {processedLastInputs.length > 0 ? (
-                  <div className="animate-scroll">
+                  <div className="absolute w-full animate-scroll">
+                    {/* First pass */}
                     {processedLastInputs.map((input, index) => (
                       <div 
                         key={`${input.house}-${input.points}-${input.timestamp}-${index}`}
@@ -467,7 +468,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
                       <div className={`h-px ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
                       <div className={`h-px ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'} mt-1`}></div>
                     </div>
-                    {/* Repeat the list */}
+                    {/* Second pass */}
                     {processedLastInputs.map((input, index) => (
                       <div 
                         key={`${input.house}-${input.points}-${input.timestamp}-${index}-repeat`}
