@@ -252,48 +252,15 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     }
   }, []);
 
-  // Function to update dark mode based on time
-  const updateDarkMode = useCallback(() => {
-    const shouldBeDarkMode = isInNoRefreshWindow();
-    setIsDarkMode(shouldBeDarkMode);
-  }, []);
-
   useEffect(() => {
-    // Initial dark mode setting
-    updateDarkMode();
-    
-    // Check if we're in the no-refresh window
-    const initialInNoRefreshWindow = isInNoRefreshWindow();
-    setInNoRefreshWindow(initialInNoRefreshWindow);
-    
-    // Initial fetch, only if not in no-refresh window
-    if (!initialInNoRefreshWindow) {
-      fetchData();
-    }
-
-    // Set up refresh interval - only active outside the no-refresh window
-    let refreshInterval: NodeJS.Timeout | null = null;
-    
-    if (!initialInNoRefreshWindow) {
-      refreshInterval = setInterval(fetchData, 900000); // 15 minutes
-    }
-    
-    // Set up countdown interval - only active outside the no-refresh window
-    let countdownInterval: NodeJS.Timeout | null = null;
-    
-    if (!initialInNoRefreshWindow) {
-      countdownInterval = setInterval(() => {
-        setNextRefresh(prev => prev > 0 ? prev - 1 : 900);
-      }, 1000);
-    }
-    
-    // Check every minute if we've entered or left the no-refresh window
-    const windowCheckInterval = setInterval(() => {
+    // Check time window status and update states
+    const checkTimeBasedSettings = () => {
       const nowInWindow = isInNoRefreshWindow();
       
-      // Update dark mode when window changes
-      updateDarkMode();
+      // Update dark mode
+      setIsDarkMode(nowInWindow);
       
+      // Update no-refresh window state if changed
       if (nowInWindow !== inNoRefreshWindow) {
         setInNoRefreshWindow(nowInWindow);
         
@@ -320,7 +287,34 @@ export default function HousePoints({ initialData }: HousePointsProps) {
           }, 1000);
         }
       }
-    }, 60000); // Check every minute
+    };
+    
+    // Initial settings
+    checkTimeBasedSettings();
+    
+    // Initial fetch, only if not in no-refresh window
+    if (!inNoRefreshWindow) {
+      fetchData();
+    }
+
+    // Set up refresh interval - only active outside the no-refresh window
+    let refreshInterval: NodeJS.Timeout | null = null;
+    
+    if (!inNoRefreshWindow) {
+      refreshInterval = setInterval(fetchData, 900000); // 15 minutes
+    }
+    
+    // Set up countdown interval - only active outside the no-refresh window
+    let countdownInterval: NodeJS.Timeout | null = null;
+    
+    if (!inNoRefreshWindow) {
+      countdownInterval = setInterval(() => {
+        setNextRefresh(prev => prev > 0 ? prev - 1 : 900);
+      }, 1000);
+    }
+    
+    // Check every minute for both dark mode and refresh window
+    const minuteCheckInterval = setInterval(checkTimeBasedSettings, 60000);
 
     // Handle keyboard shortcuts
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -367,12 +361,12 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     return () => {
       if (refreshInterval) clearInterval(refreshInterval);
       if (countdownInterval) clearInterval(countdownInterval);
-      clearInterval(windowCheckInterval);
+      clearInterval(minuteCheckInterval);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [fetchData, toggleFullscreen, isFullscreen, inNoRefreshWindow, updateDarkMode]);
+  }, [fetchData, toggleFullscreen, isFullscreen, inNoRefreshWindow]);
 
   // Calculate total points
   const totalPoints = data.houses.reduce((sum, house) => sum + house.points, 0);
