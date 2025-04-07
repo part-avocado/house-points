@@ -81,18 +81,71 @@ function validateHouseData(data: any): data is HouseData {
   return true;
 }
 
+function formatRefreshTime(seconds: number): string {
+  if (seconds >= 60) {
+    const minutes = Math.floor(seconds / 60);
+    // Always show only minutes when >= 60 seconds
+    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+  } else if (seconds >= 30) {
+    return `<1 minute`;
+  } else {
+    return `${seconds} ${seconds === 1 ? 'second' : 'seconds'}`;
+  }
+}
+
+// Check if current time is within the no-refresh window (4:30PM - 7:25AM)
+function isInNoRefreshWindow(): boolean {
+  const now = new Date();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  
+  // Convert current time to minutes since midnight for easier comparison
+  const currentTimeInMinutes = hours * 60 + minutes;
+  
+  // Define boundaries in minutes since midnight
+  const eveningCutoff = 16 * 60 + 30; // 4:30PM = 16:30
+  const morningCutoff = 7 * 60 + 25;  // 7:25AM = 7:25
+  
+  // Check if we're after evening cutoff or before morning cutoff
+  return currentTimeInMinutes >= eveningCutoff || currentTimeInMinutes < morningCutoff;
+}
+
+// Format the next refresh time message
+function getRefreshMessage(nextRefresh: number, isLoading: boolean, isInWindow: boolean, isForceRefreshing: boolean): string {
+  if (isLoading) {
+    return isForceRefreshing ? 'Force refreshing...' : 'Refreshing...';
+  }
+  
+  if (isInWindow) {
+    return 'Not refreshing until 7:25AM';
+  }
+  
+  return `Next refresh in ${formatRefreshTime(nextRefresh)}`;
+}
+
 export default function HousePoints({ initialData }: HousePointsProps) {
   const [data, setData] = useState<HouseData>(initialData);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [nextRefresh, setNextRefresh] = useState(30);
+  const [nextRefresh, setNextRefresh] = useState(900);
   const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMouse, setShowMouse] = useState(true);
+  const [inNoRefreshWindow, setInNoRefreshWindow] = useState(isInNoRefreshWindow());
+  const [forceRefreshing, setForceRefreshing] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (force = false) => {
+    // Don't fetch during no-refresh window unless forced
+    if (isInNoRefreshWindow() && !force) {
+      setInNoRefreshWindow(true);
+      return;
+    }
+    
     try {
       setIsLoading(true);
+      if (force) {
+        setForceRefreshing(true);
+      }
       setError(null);
       
       // Add timestamp to prevent caching
@@ -156,7 +209,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       if (newData.houses.length > 0) {
         setData(newData);
         setLastUpdate(Date.now());
-        setNextRefresh(30);
+        setNextRefresh(900);
         setError(null);
       } else {
         throw new Error('No house data available');
@@ -165,9 +218,12 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       console.error('Error fetching house data:', err);
       // Keep existing data and show error
       setError('Failed to load data. Retrying...');
-      setNextRefresh(3); // Retry sooner on error
+      setNextRefresh(60); // Retry in 1 minute on error
     } finally {
       setIsLoading(false);
+      if (force) {
+        setForceRefreshing(false);
+      }
     }
   }, []); // Remove data dependency to prevent unnecessary re-renders
 
@@ -196,20 +252,76 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   }, []);
 
   useEffect(() => {
-    // Initial fetch
-    fetchData();
+    // Check if we're in the no-refresh window
+    const initialInNoRefreshWindow = isInNoRefreshWindow();
+    setInNoRefreshWindow(initialInNoRefreshWindow);
+    
+    // Initial fetch, only if not in no-refresh window
+    if (!initialInNoRefreshWindow) {
+      fetchData();
+    }
 
-    // Set up intervals
-    const refreshInterval = setInterval(fetchData, 30000);
-    const countdownInterval = setInterval(() => {
-      setNextRefresh(prev => prev > 0 ? prev - 1 : 30);
-    }, 1000);
+    // Set up refresh interval - only active outside the no-refresh window
+    let refreshInterval: NodeJS.Timeout | null = null;
+    
+    if (!initialInNoRefreshWindow) {
+      refreshInterval = setInterval(fetchData, 900000); // 15 minutes
+    }
+    
+    // Set up countdown interval - only active outside the no-refresh window
+    let countdownInterval: NodeJS.Timeout | null = null;
+    
+    if (!initialInNoRefreshWindow) {
+      countdownInterval = setInterval(() => {
+        setNextRefresh(prev => prev > 0 ? prev - 1 : 900);
+      }, 1000);
+    }
+    
+    // Check every minute if we've entered or left the no-refresh window
+    const windowCheckInterval = setInterval(() => {
+      const nowInWindow = isInNoRefreshWindow();
+      
+      if (nowInWindow !== inNoRefreshWindow) {
+        setInNoRefreshWindow(nowInWindow);
+        
+        // Clear existing intervals when window status changes
+        if (refreshInterval) {
+          clearInterval(refreshInterval);
+          refreshInterval = null;
+        }
+        
+        if (countdownInterval) {
+          clearInterval(countdownInterval);
+          countdownInterval = null;
+        }
+        
+        // If we're leaving the no-refresh window (i.e., it's morning)
+        if (!nowInWindow) {
+          // Do an immediate fetch
+          fetchData();
+          
+          // Set up new intervals
+          refreshInterval = setInterval(fetchData, 900000);
+          countdownInterval = setInterval(() => {
+            setNextRefresh(prev => prev > 0 ? prev - 1 : 900);
+          }, 1000);
+        }
+      }
+    }, 60000); // Check every minute
 
-    // Handle fullscreen keyboard shortcut
+    // Handle keyboard shortcuts
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Fullscreen toggle: Ctrl+K
       if (e.ctrlKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         toggleFullscreen();
+      }
+      
+      // Force refresh: Ctrl+B
+      if (e.ctrlKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        console.log('Force refreshing data...');
+        fetchData(true); // Pass true to force refresh
       }
     };
 
@@ -240,13 +352,14 @@ export default function HousePoints({ initialData }: HousePointsProps) {
 
     // Cleanup
     return () => {
-      clearInterval(refreshInterval);
-      clearInterval(countdownInterval);
+      if (refreshInterval) clearInterval(refreshInterval);
+      if (countdownInterval) clearInterval(countdownInterval);
+      clearInterval(windowCheckInterval);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [fetchData, toggleFullscreen, isFullscreen]);
+  }, [fetchData, toggleFullscreen, isFullscreen, inNoRefreshWindow]);
 
   // Calculate total points
   const totalPoints = data.houses.reduce((sum, house) => sum + house.points, 0);
@@ -256,26 +369,34 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       className={`min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 sm:p-8 relative transition-all duration-300 ${!showMouse ? 'cursor-none' : ''}`}
     >
       <div className="max-w-7xl mx-auto relative min-h-[calc(100vh-2rem)] sm:min-h-[calc(100vh-4rem)]">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 sm:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 sm:gap-8 lg:gap-14">
           {/* Left Column - Rankings */}
-          <div className="space-y-4">
+          <div className="space-y-4 px-2 sm:px-4">
             {data.houses.map((house, index) => (
               <div
                 key={`${house.name}-${house.points}-${lastUpdate}`}
-                className="rounded-lg p-4 sm:p-6 text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl flex items-center backdrop-blur-sm bg-opacity-95"
+                className={`rounded-lg p-4 sm:p-6 text-white shadow-lg transition-all flex items-center backdrop-blur-sm bg-opacity-95
+                  ${index === 0 ? 'transform scale-103 shadow-lg border-2 border-yellow-400' : ''}
+                `}
                 style={{ backgroundColor: house.color }}
               >
-                <div className="text-3xl sm:text-4xl font-bold mr-4 sm:mr-6 w-10 sm:w-12">#{index + 1}</div>
-                <div className="flex-grow">
-                  <h3 className="text-xl sm:text-2xl font-bold">{house.name}</h3>
+                <div className={`mr-4 sm:mr-6 w-10 sm:w-12 ${index === 0 ? 'text-4xl sm:text-5xl' : 'text-3xl sm:text-4xl'} font-bold`}>
+                  #{index + 1}
                 </div>
-                <div className="text-3xl sm:text-4xl font-bold">{house.points}</div>
+                <div className="flex-grow">
+                  <h3 className={`${index === 0 ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl'} font-bold`}>
+                    {house.name}
+                  </h3>
+                </div>
+                <div className={`${index === 0 ? 'text-4xl sm:text-5xl' : 'text-3xl sm:text-4xl'} font-bold`}>
+                  {house.points}
+                </div>
               </div>
             ))}
           </div>
 
           {/* Right Column - Stats */}
-          <div className="lg:w-80 space-y-4">
+          <div className="lg:w-80 space-y-4 px-2 sm:px-4 ml-auto">
             {/* Total Points Card */}
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-4 sm:p-6 shadow-lg sticky top-4 sm:top-8 backdrop-blur-sm">
               <h2 className="text-lg sm:text-xl font-bold mb-2">Total Points Awarded</h2>
@@ -350,7 +471,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             </div>
           )}
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {isLoading ? 'Refreshing...' : `Next refresh in ${nextRefresh}s`}
+            {getRefreshMessage(nextRefresh, isLoading, inNoRefreshWindow, forceRefreshing)}
             {error && <span className="text-red-500 ml-2">{error}</span>}
           </div>
         </div>
