@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { House, HouseData } from '../types/house';
 import Image from 'next/image';
 import { SpeedInsights } from "@vercel/speed-insights/next"
@@ -134,6 +134,33 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   const [inNoRefreshWindow, setInNoRefreshWindow] = useState(isInNoRefreshWindow());
   const [forceRefreshing, setForceRefreshing] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(isInNoRefreshWindow());
+  const [marqueePosition, setMarqueePosition] = useState(0);
+
+  // Filter and process last inputs for the marquee
+  const processedLastInputs = useMemo(() => {
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    return data.lastInputs
+      .filter(input => {
+        const [datePart, timePart] = input.timestamp.split(' ');
+        const [day, month, year] = datePart.split('/');
+        const inputDate = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timePart}-05:00`);
+        return inputDate >= oneWeekAgo;
+      })
+      .filter(input => !input.house.toLowerCase().includes('eventengine'))
+      .reverse(); // Newest first
+  }, [data.lastInputs]);
+
+  // Update marquee position
+  useEffect(() => {
+    if (processedLastInputs.length > 0) {
+      const interval = setInterval(() => {
+        setMarqueePosition(prev => (prev + 1) % processedLastInputs.length);
+      }, 5000); // Change every 5 seconds
+      return () => clearInterval(interval);
+    }
+  }, [processedLastInputs.length]);
 
   const fetchData = useCallback(async (force = false) => {
     // Don't fetch during no-refresh window unless forced
@@ -416,23 +443,53 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             {/* Last Inputs Card */}
             <div className={`rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
               <h2 className={`text-lg sm:text-xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Latest Activity</h2>
-              <div className="space-y-3">
-                {data.lastInputs.map((input, index) => (
-                  <div 
-                    key={`${input.house}-${input.points}-${input.timestamp}-${lastUpdate}`}
-                    className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs sm:text-sm"
-                  >
-                    <span className="font-bold text-blue-600 dark:text-blue-400 w-12 sm:w-14">
-                      +{input.points}
-                    </span>
-                    <span className={`truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                      to {input.house}
-                    </span>
-                    <span className={`text-right ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                      {formatTimeAgo(input.timestamp)}
-                    </span>
+              <div className="space-y-3 overflow-hidden h-[120px]">
+                {processedLastInputs.length > 0 ? (
+                  <div className="animate-scroll">
+                    {processedLastInputs.map((input, index) => (
+                      <div 
+                        key={`${input.house}-${input.points}-${input.timestamp}-${index}`}
+                        className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs sm:text-sm mb-3"
+                      >
+                        <span className="font-bold text-blue-600 dark:text-blue-400 w-12 sm:w-14">
+                          +{input.points}
+                        </span>
+                        <span className={`truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                          to {input.house}
+                        </span>
+                        <span className={`text-right ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                          {formatTimeAgo(input.timestamp)}
+                        </span>
+                      </div>
+                    ))}
+                    {/* Separator */}
+                    <div className="my-4">
+                      <div className={`h-px ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+                      <div className={`h-px ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'} mt-1`}></div>
+                    </div>
+                    {/* Repeat the list */}
+                    {processedLastInputs.map((input, index) => (
+                      <div 
+                        key={`${input.house}-${input.points}-${input.timestamp}-${index}-repeat`}
+                        className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs sm:text-sm mb-3"
+                      >
+                        <span className="font-bold text-blue-600 dark:text-blue-400 w-12 sm:w-14">
+                          +{input.points}
+                        </span>
+                        <span className={`truncate ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                          to {input.house}
+                        </span>
+                        <span className={`text-right ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                          {formatTimeAgo(input.timestamp)}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                ) : (
+                  <div className={`text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    No recent activity
+                  </div>
+                )}
               </div>
             </div>
 
