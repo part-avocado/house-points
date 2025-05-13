@@ -377,7 +377,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       <div className="min-h-screen flex flex-col items-center justify-center bg-white text-black relative">
         <div className="flex flex-col items-center justify-center flex-grow">
           <div style={{ fontSize: '8vw', fontWeight: 600, lineHeight: 1, marginBottom: '2vw' }}>
-            ¯\\_(ツ)_/¯
+            ¯\_(ツ)_/¯
           </div>
           <div style={{ fontSize: '3vw', fontWeight: 400, marginBottom: '4vw' }}>
             Something big happening
