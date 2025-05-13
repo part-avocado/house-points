@@ -11,10 +11,13 @@ interface HousePointsProps {
 }
 
 function formatTimeAgo(timestamp: string) {
+  if (!timestamp || typeof timestamp !== 'string') return '';
   // Parse date in format "DD/MM/YYYY HH:mm:ss" in EST
   const [datePart, timePart] = timestamp.split(' ');
+  if (!datePart || !timePart) return '';
   const [day, month, year] = datePart.split('/');
   const [hours, minutes, seconds] = timePart.split(':');
+  if (!day || !month || !year || !hours || !minutes || !seconds) return '';
   
   // Create date in EST
   const date = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hours}:${minutes}:${seconds}-05:00`);
