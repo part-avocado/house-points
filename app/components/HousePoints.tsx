@@ -438,7 +438,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
 
             {/* Top Contributors Card */}
             <div className={`rounded-lg p-4 sm:p-6 shadow-lg backdrop-blur-sm ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-              <h2 className={`text-lg sm:text-xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Top Contributors</h2>
+              <h2 className={`text-lg sm:text-xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Top Awarders</h2>
               <div className="space-y-3">
                 {data.topContributors.map((contributor, index) => (
                   <div 
