@@ -5,31 +5,31 @@ const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID || '';
 // Consolidate all ranges into a single request
 const RANGES = {
   TOTAL_POINTS: 'G2',
-  HOUSE_POINTS: 'I2:I8',
+  HOUSE_POINTS: 'J2:J8',
   INPUTS: 'A2:D100',
   CONTRIBUTORS: 'L2:M100',
   MESSAGE: 'H21'
 };
 
 const HOUSE_POINTS_RANGES = [
-  { name: 'Newton Hill', range: 'I2' },
-  { name: 'Green Hill', range: 'I3' },
-  { name: 'Tatnuck Hill', range: 'I4' },
-  { name: 'Bancroft Hill', range: 'I5' },
-  { name: 'Pakachoag Hill', range: 'I6' },
-  { name: 'Union Hill', range: 'I7' },
-  { name: 'Chandler Hill', range: 'I8' },
+  { name: 'Newton Hill', range: 'J2' },
+  { name: 'Green Hill', range: 'J3' },
+  { name: 'Tatnuck Hill', range: 'J4' },
+  { name: 'Bancroft Hill', range: 'J5' },
+  { name: 'Pakachoag Hill', range: 'J6' },
+  { name: 'Union Hill', range: 'J7' },
+  { name: 'Chandler Hill', range: 'J8' },
 ];
 
 function getHouseColor(house: string): string {
   const colors: { [key: string]: string } = {
-    'Newton Hill': '#808080',      // Gray
+    'Newton Hill': '#C0C0C0',      // Silver
     'Green Hill': '#00cc66',       // Green
-    'Tatnuck Hill': '#ffaa44',     // Orange
+    'Tatnuck Hill': '#FFD700',     // Gold
     'Bancroft Hill': '#0066cc',    // Blue
     'Pakachoag Hill': '#9966ff',   // Purple
     'Union Hill': '#ff4444',       // Red
-    'Chandler Hill': '#990000',    // Dark Red
+    'Chandler Hill': '#800000',    // Maroon
   };
   return colors[house] || '#cccccc';
 }
