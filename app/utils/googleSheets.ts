@@ -81,7 +81,9 @@ export async function getHouseData(): Promise<HouseData> {
       .filter(row => 
         row[0] && row[0].trim() !== '' && // Has timestamp
         row[2] && row[2].trim() !== '' && // Has house name
-        row[3] !== undefined // Has points
+        row[3] !== undefined && // Has points
+        row[1] && row[1].trim() !== '' && // Email is not empty/whitespace
+        row[1].trim().toLowerCase() !== 'eventengine' // Email is not 'eventengine'
       )
       .slice(-3) // Take last 3 valid entries
       .reverse() // Reverse to get newest first
