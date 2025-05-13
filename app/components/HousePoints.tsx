@@ -371,6 +371,36 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   // Calculate total points
   const totalPoints = data.houses.reduce((sum, house) => sum + house.points, 0);
 
+  if (data.showBoard === false) {
+    // Render the mockup screen
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white text-black relative">
+        <div className="flex flex-col items-center justify-center flex-grow">
+          <div style={{ fontSize: '8vw', fontWeight: 600, lineHeight: 1, marginBottom: '2vw' }}>
+            ¯\\_(ツ)_/¯
+          </div>
+          <div style={{ fontSize: '3vw', fontWeight: 400, marginBottom: '4vw' }}>
+            Something big happening
+          </div>
+          <div style={{ fontSize: '1.2vw', color: '#444', marginTop: '2vw' }}>
+            {data.message || 'default message here'}
+          </div>
+        </div>
+        {/* Logo - Fixed to bottom right */}
+        <div className="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 z-10">
+          <Image
+            src="/bancroftlogo.svg"
+            alt="Bancroft School"
+            width={48}
+            height={48}
+            className="h-8 sm:h-12 w-auto"
+            priority
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       className={`min-h-screen transition-all duration-300 ${!showMouse ? 'cursor-none' : ''} 

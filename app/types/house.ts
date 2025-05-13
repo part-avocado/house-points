@@ -20,4 +20,5 @@ export interface HouseData {
   lastInputs: LastInput[];
   topContributors: TopContributor[];
   message?: string; // Optional message field
+  showBoard?: boolean; // Optional flag to show or hide the board
 } 

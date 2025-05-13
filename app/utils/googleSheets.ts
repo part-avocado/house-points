@@ -8,7 +8,8 @@ const RANGES = {
   HOUSE_POINTS: 'J2:J8',
   INPUTS: 'A2:D100',
   CONTRIBUTORS: 'L2:M100',
-  MESSAGE: 'H21'
+  MESSAGE: 'H21',
+  SHOW_BOARD: 'H24',
 };
 
 const HOUSE_POINTS_RANGES = [
@@ -54,12 +55,13 @@ export async function getHouseData(): Promise<HouseData> {
         RANGES.HOUSE_POINTS,
         RANGES.INPUTS,
         RANGES.CONTRIBUTORS,
-        RANGES.MESSAGE
+        RANGES.MESSAGE,
+        RANGES.SHOW_BOARD
       ],
     });
     
     // Process the responses - they will be in the same order as requested
-    const [totalPointsResponse, housePointsResponse, lastInputsResponse, contributorsResponse, messageResponse] 
+    const [totalPointsResponse, housePointsResponse, lastInputsResponse, contributorsResponse, messageResponse, showBoardResponse] 
       = response.data.valueRanges || [];
     
     const totalPoints = parseInt(totalPointsResponse.values?.[0]?.[0] || '0', 10);
@@ -114,14 +116,17 @@ export async function getHouseData(): Promise<HouseData> {
     // Get message
     const message = messageResponse.values?.[0]?.[0];
 
+    const showBoard = (showBoardResponse?.values?.[0]?.[0] || '').toString().toLowerCase() === 'true';
+
     return {
       houses: houses.sort((a, b) => b.points - a.points), // Sort by points in descending order
       lastInputs: lastInputsWithDetails,
       topContributors,
-      message: message || undefined // Only include message if it exists
+      message: message || undefined, // Only include message if it exists
+      showBoard
     };
   } catch (error) {
     console.error('Error fetching house data:', error);
-    return { houses: [], lastInputs: [], topContributors: [], message: undefined };
+    return { houses: [], lastInputs: [], topContributors: [], message: undefined, showBoard: false };
   }
 } 
