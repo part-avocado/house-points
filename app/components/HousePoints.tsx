@@ -120,7 +120,7 @@ function getRefreshMessage(nextRefresh: number, isLoading: boolean, isInWindow: 
   }
   
   if (isInWindow) {
-    return 'Not refreshing until 7:25AM, data may not reflect modifications after 4:30PM yesterday.';
+    return 'Not refreshing until 7:25AM, data may not reflect modifications after 4:30PM. Good luck! :D';
   }
   
   return `Next refresh in ${formatRefreshTime(nextRefresh)}`;
