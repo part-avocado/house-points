@@ -10,6 +10,7 @@ const RANGES = {
   CONTRIBUTORS: 'L2:M100',
   MESSAGE: 'H21',
   SHOW_BOARD: 'H24',
+  BACKGROUND_COLOR: 'G5',
 };
 
 const HOUSE_POINTS_RANGES = [
@@ -56,12 +57,13 @@ export async function getHouseData(): Promise<HouseData> {
         RANGES.INPUTS,
         RANGES.CONTRIBUTORS,
         RANGES.MESSAGE,
-        RANGES.SHOW_BOARD
+        RANGES.SHOW_BOARD,
+        RANGES.BACKGROUND_COLOR
       ],
     });
     
     // Process the responses - they will be in the same order as requested
-    const [totalPointsResponse, housePointsResponse, lastInputsResponse, contributorsResponse, messageResponse, showBoardResponse] 
+    const [totalPointsResponse, housePointsResponse, lastInputsResponse, contributorsResponse, messageResponse, showBoardResponse, backgroundColorResponse] 
       = response.data.valueRanges || [];
     
     const totalPoints = parseInt(totalPointsResponse.values?.[0]?.[0] || '0', 10);
@@ -120,15 +122,26 @@ export async function getHouseData(): Promise<HouseData> {
 
     const showBoard = (showBoardResponse?.values?.[0]?.[0] || '').toString().toLowerCase() === 'true';
 
+    // Get background color from G5 cell
+    const backgroundColorValue = backgroundColorResponse?.values?.[0]?.[0];
+    let backgroundColor: string | undefined;
+    
+    if (backgroundColorValue && backgroundColorValue.trim() !== '') {
+      const colorValue = backgroundColorValue.trim();
+      // If it starts with #, use it as is, otherwise assume it's a color name/value and prepend #
+      backgroundColor = colorValue.startsWith('#') ? colorValue : `#${colorValue}`;
+    }
+
     return {
       houses: houses.sort((a, b) => b.points - a.points), // Sort by points in descending order
       lastInputs: lastInputsWithDetails,
       topContributors,
       message: message || undefined, // Only include message if it exists
-      showBoard
+      showBoard,
+      backgroundColor
     };
   } catch (error) {
     console.error('Error fetching house data:', error);
-    return { houses: [], lastInputs: [], topContributors: [], message: undefined, showBoard: false };
+    return { houses: [], lastInputs: [], topContributors: [], message: undefined, showBoard: false, backgroundColor: undefined };
   }
 } 

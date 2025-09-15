@@ -21,4 +21,5 @@ export interface HouseData {
   topContributors: TopContributor[];
   message?: string; // Optional message field
   showBoard?: boolean; // Optional flag to show or hide the board
+  backgroundColor?: string; // Optional background color from G5 cell
 } 

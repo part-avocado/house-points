@@ -113,6 +113,23 @@ function isInNoRefreshWindow(): boolean {
   return currentTimeInMinutes >= eveningCutoff || currentTimeInMinutes < morningCutoff;
 }
 
+// Check if current time is within the active refresh window (7:25AM - 4:30PM) when background color should be applied
+function isInActiveRefreshWindow(): boolean {
+  const now = new Date();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  
+  // Convert current time to minutes since midnight for easier comparison
+  const currentTimeInMinutes = hours * 60 + minutes;
+  
+  // Define boundaries in minutes since midnight
+  const morningStart = 7 * 60 + 25;   // 7:25AM = 7:25
+  const eveningEnd = 16 * 60 + 30;    // 4:30PM = 16:30
+  
+  // Check if we're between morning start and evening end
+  return currentTimeInMinutes >= morningStart && currentTimeInMinutes < eveningEnd;
+}
+
 // Format the next refresh time message
 function getRefreshMessage(nextRefresh: number, isLoading: boolean, isInWindow: boolean, isForceRefreshing: boolean): string {
   if (isLoading) {
@@ -137,6 +154,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   const [inNoRefreshWindow, setInNoRefreshWindow] = useState(isInNoRefreshWindow());
   const [forceRefreshing, setForceRefreshing] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(isInNoRefreshWindow());
+  const [shouldApplyBackgroundColor, setShouldApplyBackgroundColor] = useState(isInActiveRefreshWindow());
 
   const fetchData = useCallback(async (force = false) => {
     // Don't fetch during no-refresh window unless forced
@@ -259,9 +277,13 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     // Check time window status and update states
     const checkTimeBasedSettings = () => {
       const nowInWindow = isInNoRefreshWindow();
+      const nowInActiveWindow = isInActiveRefreshWindow();
       
       // Update dark mode
       setIsDarkMode(nowInWindow);
+      
+      // Update background color application state
+      setShouldApplyBackgroundColor(nowInActiveWindow);
       
       // Update no-refresh window state if changed
       if (nowInWindow !== inNoRefreshWindow) {
@@ -404,12 +426,31 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     );
   }
 
+  // Determine the background style
+  const getBackgroundStyle = () => {
+    // If we have a background color from G5 and we're in the active window, use it
+    if (shouldApplyBackgroundColor && data.backgroundColor) {
+      return { backgroundColor: data.backgroundColor };
+    }
+    // Otherwise, use default gradient based on dark mode
+    return {};
+  };
+
+  const getBackgroundClassName = () => {
+    // If we have a custom background color, don't use gradient classes
+    if (shouldApplyBackgroundColor && data.backgroundColor) {
+      return isDarkMode ? 'text-white' : 'text-gray-900';
+    }
+    // Otherwise, use gradient classes
+    return isDarkMode 
+      ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white' 
+      : 'bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900';
+  };
+
   return (
     <div 
-      className={`min-h-screen transition-all duration-300 ${!showMouse ? 'cursor-none' : ''} 
-        ${isDarkMode 
-          ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-white' 
-          : 'bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900'}`}
+      className={`min-h-screen transition-all duration-300 ${!showMouse ? 'cursor-none' : ''} ${getBackgroundClassName()}`}
+      style={getBackgroundStyle()}
     >
       <div className="max-w-7xl mx-auto relative min-h-[calc(100vh-2rem)] sm:min-h-[calc(100vh-4rem)] p-4 sm:p-8">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 sm:gap-8 lg:gap-14 px-2 sm:px-4">
