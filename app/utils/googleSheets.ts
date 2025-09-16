@@ -6,7 +6,7 @@ const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID || '';
 const RANGES = {
   TOTAL_POINTS: 'G2',
   HOUSE_POINTS: 'J2:J8',
-  INPUTS: 'A2:D100',
+  INPUTS: 'A2:D',
   CONTRIBUTORS: 'L2:M100',
   MESSAGE: 'H21',
   SHOW_BOARD: 'H24',
