@@ -9,7 +9,10 @@ class PriorityManager {
   private callbacks: Array<(isPriority: boolean) => void> = [];
 
   private constructor() {
-    this.startMonitoring();
+    // Only initialize on client side
+    if (typeof window !== 'undefined') {
+      this.startMonitoring();
+    }
   }
 
   public static getInstance(): PriorityManager {
@@ -20,35 +23,35 @@ class PriorityManager {
   }
 
   public enablePriorityMode(): void {
+    if (typeof window === 'undefined') return;
+    
     this.isPriority = true;
     
-    // Set priority flag in localStorage with timestamp
+    // Set priority flag in sessionStorage (not localStorage) to make it non-sticky
     const priorityData = {
       instanceId: this.generateInstanceId(),
       timestamp: Date.now(),
       userAgent: navigator.userAgent
     };
     
-    localStorage.setItem(this.priorityKey, JSON.stringify(priorityData));
-    localStorage.setItem(this.heartbeatKey, Date.now().toString());
+    sessionStorage.setItem(this.priorityKey, JSON.stringify(priorityData));
+    sessionStorage.setItem(this.heartbeatKey, Date.now().toString());
     
     this.startHeartbeat();
     this.notifyCallbacks();
-    
-    console.log('🚀 Priority mode enabled - this instance now has API priority');
   }
 
   public disablePriorityMode(): void {
+    if (typeof window === 'undefined') return;
+    
     this.isPriority = false;
     this.stopHeartbeat();
     
-    // Clear priority flags
-    localStorage.removeItem(this.priorityKey);
-    localStorage.removeItem(this.heartbeatKey);
+    // Clear priority flags from sessionStorage
+    sessionStorage.removeItem(this.priorityKey);
+    sessionStorage.removeItem(this.heartbeatKey);
     
     this.notifyCallbacks();
-    
-    console.log('⏸️ Priority mode disabled');
   }
 
   public isPriorityInstance(): boolean {
@@ -56,14 +59,16 @@ class PriorityManager {
   }
 
   public canMakeAPIRequest(): boolean {
+    if (typeof window === 'undefined') return true; // Allow on server side
+    
     // If this is the priority instance, always allow
     if (this.isPriorityInstance()) {
       return true;
     }
 
-    // Check if there's an active priority instance
-    const priorityData = localStorage.getItem(this.priorityKey);
-    const lastHeartbeat = localStorage.getItem(this.heartbeatKey);
+    // Check if there's an active priority instance in sessionStorage
+    const priorityData = sessionStorage.getItem(this.priorityKey);
+    const lastHeartbeat = sessionStorage.getItem(this.heartbeatKey);
 
     if (!priorityData || !lastHeartbeat) {
       // No priority instance active, allow request
@@ -74,8 +79,8 @@ class PriorityManager {
     const heartbeatAge = Date.now() - parseInt(lastHeartbeat);
     if (heartbeatAge > 10000) {
       // Priority instance seems dead, clean up and allow request
-      localStorage.removeItem(this.priorityKey);
-      localStorage.removeItem(this.heartbeatKey);
+      sessionStorage.removeItem(this.priorityKey);
+      sessionStorage.removeItem(this.heartbeatKey);
       return true;
     }
 
@@ -84,7 +89,9 @@ class PriorityManager {
   }
 
   public getBlockMessage(): string {
-    const priorityData = localStorage.getItem(this.priorityKey);
+    if (typeof window === 'undefined') return "This is not the primary instance. :(";
+    
+    const priorityData = sessionStorage.getItem(this.priorityKey);
     
     if (priorityData) {
       try {
@@ -112,7 +119,9 @@ class PriorityManager {
   }
 
   private checkIfCurrentInstanceIsPriority(): boolean {
-    const priorityData = localStorage.getItem(this.priorityKey);
+    if (typeof window === 'undefined') return false;
+    
+    const priorityData = sessionStorage.getItem(this.priorityKey);
     
     if (!priorityData) return false;
     
@@ -127,11 +136,13 @@ class PriorityManager {
   }
 
   private startHeartbeat(): void {
+    if (typeof window === 'undefined') return;
+    
     this.stopHeartbeat();
     
     this.heartbeatInterval = setInterval(() => {
       if (this.isPriority) {
-        localStorage.setItem(this.heartbeatKey, Date.now().toString());
+        sessionStorage.setItem(this.heartbeatKey, Date.now().toString());
       }
     }, 2000); // Update heartbeat every 2 seconds
   }
@@ -144,7 +155,11 @@ class PriorityManager {
   }
 
   private startMonitoring(): void {
-    // Monitor localStorage changes from other tabs/windows
+    if (typeof window === 'undefined') return;
+    
+    // Monitor storage changes from other tabs/windows
+    // Note: sessionStorage doesn't trigger 'storage' events across tabs,
+    // so we'll rely on periodic checks for cross-tab communication
     window.addEventListener('storage', (e) => {
       if (e.key === this.priorityKey || e.key === this.heartbeatKey) {
         this.notifyCallbacks();

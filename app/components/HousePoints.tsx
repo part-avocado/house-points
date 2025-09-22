@@ -5,6 +5,7 @@ import { House, HouseData } from '../types/house';
 import Image from 'next/image';
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import PriorityManager from '../utils/priorityManager';
+import { setupConsoleCommands, cleanupConsoleCommands } from '../utils/consoleCommands';
 
 <SpeedInsights/>
 interface HousePointsProps {
@@ -161,12 +162,13 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   const [forceRefreshing, setForceRefreshing] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(isInNoRefreshWindow());
   const [shouldApplyBackgroundColor, setShouldApplyBackgroundColor] = useState(isInActiveRefreshWindow());
+  const [priorityManager, setPriorityManager] = useState<PriorityManager | null>(null);
   const [isPriorityInstance, setIsPriorityInstance] = useState(false);
-  const [priorityManager] = useState(() => PriorityManager.getInstance());
+  const [isHydrated, setIsHydrated] = useState(false);
 
   const fetchData = useCallback(async (force = false) => {
     // Check if this instance can make API requests
-    if (!priorityManager.canMakeAPIRequest() && !force) {
+    if (priorityManager && !priorityManager.canMakeAPIRequest() && !force) {
       // Don't modify the main data message, just skip the API call
       // The blocking message will be shown in the refresh status instead
       return;
@@ -367,18 +369,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       // Force refresh: Ctrl+B
       if (e.ctrlKey && e.key.toLowerCase() === 'b') {
         e.preventDefault();
-        console.log('Force refreshing data...');
         fetchData(true); // Pass true to force refresh
-      }
-
-      // Priority mode toggle: Ctrl+Shift+P
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') {
-        e.preventDefault();
-        if (priorityManager.isPriorityInstance()) {
-          priorityManager.disablePriorityMode();
-        } else {
-          priorityManager.enablePriorityMode();
-        }
       }
     };
 
@@ -413,7 +404,11 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       // Note: blocking message will now be shown in refresh status, not main message
     };
 
-    priorityManager.onPriorityChange(handlePriorityChange);
+    // Initialize priority state and set up listener only if priorityManager exists
+    if (priorityManager) {
+      setIsPriorityInstance(priorityManager.canMakeAPIRequest());
+      priorityManager.onPriorityChange(handlePriorityChange);
+    }
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('mousemove', handleMouseMove);
@@ -424,17 +419,41 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       if (refreshInterval) clearInterval(refreshInterval);
       if (countdownInterval) clearInterval(countdownInterval);
       clearInterval(minuteCheckInterval);
-      priorityManager.removePriorityChangeListener(handlePriorityChange);
+      if (priorityManager) {
+        priorityManager.removePriorityChangeListener(handlePriorityChange);
+      }
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, [fetchData, toggleFullscreen, isFullscreen, inNoRefreshWindow]);
 
+  // Handle hydration and setup console commands
+  useEffect(() => {
+    setIsHydrated(true);
+    // Delay console command setup to avoid blocking hydration
+    const timer = setTimeout(() => {
+      setupConsoleCommands(setIsPriorityInstance);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Initialize priority manager on client side only
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !priorityManager) {
+      const manager = PriorityManager.getInstance();
+      setPriorityManager(manager);
+      setIsPriorityInstance(false); // Always start with no priority
+    }
+  }, [priorityManager]);
+
   // Cleanup priority manager on unmount
   useEffect(() => {
     return () => {
-      priorityManager.cleanup();
+      if (priorityManager) {
+        priorityManager.cleanup();
+      }
+      cleanupConsoleCommands();
     };
   }, [priorityManager]);
 
@@ -548,7 +567,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
                       to {input.house}
                     </span>
                     <span className={`text-right ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                      {formatTimeAgo(input.timestamp)}
+                      {isHydrated ? formatTimeAgo(input.timestamp) : '...'}
                     </span>
                   </div>
                 ))}
@@ -580,14 +599,15 @@ export default function HousePoints({ initialData }: HousePointsProps) {
           </div>
         </div>
 
+        {/* Priority indicator - Small dot in bottom left */}
+        {isPriorityInstance && (
+          <div className="fixed bottom-4 left-4 sm:bottom-8 sm:left-8 z-10">
+            <div className="w-3 h-3 bg-green-500 rounded-full" title="Priority Instance"></div>
+          </div>
+        )}
+
         {/* Logo - Fixed to bottom right */}
-        <div className="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 z-10 flex flex-col items-end gap-2">
-          {/* Priority indicator */}
-          {isPriorityInstance && (
-            <div className="bg-green-500 text-white px-2 py-1 rounded text-xs font-bold shadow-lg">
-              Priority Instance
-            </div>
-          )}
+        <div className="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 z-10">
           <Image
             src="/bancroftlogo.svg"
             alt="Bancroft School"
@@ -606,7 +626,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             </div>
           )}
           <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            {getRefreshMessage(nextRefresh, isLoading, inNoRefreshWindow, forceRefreshing, priorityManager)}
+            {getRefreshMessage(nextRefresh, isLoading, inNoRefreshWindow, forceRefreshing, priorityManager || undefined)}
             {error && <span className="text-red-500 ml-2">{error}</span>}
           </div>
         </div>

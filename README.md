@@ -18,17 +18,24 @@ The dashboard includes a priority system to manage API rate limits when multiple
 
 ### How it works:
 
-1. **Activation**: Press `Ctrl+Shift+P` to make the current browser tab/window the priority instance
-2. **Priority Indicator**: A green "🚀 PRIORITY" badge appears when priority mode is active
+1. **Activation**: Use the browser console command to activate priority mode
+2. **Priority Indicator**: A small green dot appears in the bottom left corner when priority mode is active
 3. **API Blocking**: Non-priority instances will stop making API requests and show "This is not the primary instance. :(" in the refresh status area (preserving the main message from Google Sheets)
-4. **Automatic Cleanup**: Priority is automatically released when the priority instance is closed or becomes inactive
-5. **Cross-Tab Sync**: Priority status is synchronized across browser tabs using localStorage
+4. **Non-Sticky Priority**: Priority is automatically cleared when the tab is closed or refreshed - must be manually reassigned
+5. **Session-Based**: Priority status is stored in sessionStorage, so it doesn't persist across browser sessions
+6. **Manual Assignment**: Priority is disabled by default and must be explicitly activated using the console command
+
+### Console Command:
+
+To activate/deactivate priority mode, open the browser console (F12) and run:
+```javascript
+initPriority('+9F3A7-1CDE4-B82F0-64A9C-5DBE1')
+```
 
 ### Keyboard Shortcuts:
 
 - `Ctrl+K`: Toggle fullscreen mode
 - `Ctrl+B`: Force refresh data
-- `Ctrl+Shift+P`: Toggle priority instance mode
 
 ## Show Board Integration
 This is a boolean function that switches between TRUE and FALSE. (any other input will absolutely destory the system :). In the event that TRUE is passed, the normal display is shown. However, in the event that FALSE is presented, a custom display writing "Something big happening" and the default message (from H21) will be placed in big text. <br><br> This can be useful when you want to hide some data (like big mixup) and gets updated along the others once every 15 minutes.
