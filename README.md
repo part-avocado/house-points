@@ -20,7 +20,7 @@ The dashboard includes a priority system to manage API rate limits when multiple
 
 1. **Activation**: Press `Ctrl+Shift+P` to make the current browser tab/window the priority instance
 2. **Priority Indicator**: A green "🚀 PRIORITY" badge appears when priority mode is active
-3. **API Blocking**: Non-priority instances will stop making API requests and show the message: "This is not the primary instance. :("
+3. **API Blocking**: Non-priority instances will stop making API requests and show "This is not the primary instance. :(" in the refresh status area (preserving the main message from Google Sheets)
 4. **Automatic Cleanup**: Priority is automatically released when the priority instance is closed or becomes inactive
 5. **Cross-Tab Sync**: Priority status is synchronized across browser tabs using localStorage
 

@@ -132,7 +132,12 @@ function isInActiveRefreshWindow(): boolean {
 }
 
 // Format the next refresh time message
-function getRefreshMessage(nextRefresh: number, isLoading: boolean, isInWindow: boolean, isForceRefreshing: boolean): string {
+function getRefreshMessage(nextRefresh: number, isLoading: boolean, isInWindow: boolean, isForceRefreshing: boolean, priorityManager?: PriorityManager): string {
+  // Check if this instance can make API requests (priority check)
+  if (priorityManager && !priorityManager.canMakeAPIRequest()) {
+    return priorityManager.getBlockMessage();
+  }
+
   if (isLoading) {
     return isForceRefreshing ? 'Force refreshing...' : 'Refreshing...';
   }
@@ -162,9 +167,8 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   const fetchData = useCallback(async (force = false) => {
     // Check if this instance can make API requests
     if (!priorityManager.canMakeAPIRequest() && !force) {
-      // Update data with blocking message
-      const blockMessage = priorityManager.getBlockMessage();
-      setData(prev => ({ ...prev, message: blockMessage }));
+      // Don't modify the main data message, just skip the API call
+      // The blocking message will be shown in the refresh status instead
       return;
     }
 
@@ -402,14 +406,11 @@ export default function HousePoints({ initialData }: HousePointsProps) {
     // Priority change listener
     const handlePriorityChange = (canMakeRequests: boolean) => {
       setIsPriorityInstance(canMakeRequests);
-      if (!canMakeRequests) {
-        // If we lost priority, update the message
-        const blockMessage = priorityManager.getBlockMessage();
-        setData(prev => ({ ...prev, message: blockMessage }));
-      } else {
+      if (canMakeRequests) {
         // If we gained priority, fetch fresh data
         fetchData();
       }
+      // Note: blocking message will now be shown in refresh status, not main message
     };
 
     priorityManager.onPriorityChange(handlePriorityChange);
@@ -583,8 +584,8 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         <div className="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 z-10 flex flex-col items-end gap-2">
           {/* Priority indicator */}
           {isPriorityInstance && (
-            <div className="bg-green-500 text-white px-2 py-1 rounded text-xs font-bold shadow-lg animate-pulse">
-              PRI
+            <div className="bg-green-500 text-white px-2 py-1 rounded text-xs font-bold shadow-lg">
+              Priority Instance
             </div>
           )}
           <Image
@@ -605,7 +606,7 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             </div>
           )}
           <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-            {getRefreshMessage(nextRefresh, isLoading, inNoRefreshWindow, forceRefreshing)}
+            {getRefreshMessage(nextRefresh, isLoading, inNoRefreshWindow, forceRefreshing, priorityManager)}
             {error && <span className="text-red-500 ml-2">{error}</span>}
           </div>
         </div>
