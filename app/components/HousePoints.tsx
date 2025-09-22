@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { House, HouseData } from '../types/house';
 import Image from 'next/image';
 import { SpeedInsights } from "@vercel/speed-insights/next"
+import PriorityManager from '../utils/priorityManager';
 
 <SpeedInsights/>
 interface HousePointsProps {
@@ -155,8 +156,18 @@ export default function HousePoints({ initialData }: HousePointsProps) {
   const [forceRefreshing, setForceRefreshing] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(isInNoRefreshWindow());
   const [shouldApplyBackgroundColor, setShouldApplyBackgroundColor] = useState(isInActiveRefreshWindow());
+  const [isPriorityInstance, setIsPriorityInstance] = useState(false);
+  const [priorityManager] = useState(() => PriorityManager.getInstance());
 
   const fetchData = useCallback(async (force = false) => {
+    // Check if this instance can make API requests
+    if (!priorityManager.canMakeAPIRequest() && !force) {
+      // Update data with blocking message
+      const blockMessage = priorityManager.getBlockMessage();
+      setData(prev => ({ ...prev, message: blockMessage }));
+      return;
+    }
+
     // Don't fetch during no-refresh window unless forced
     if (isInNoRefreshWindow() && !force) {
       setInNoRefreshWindow(true);
@@ -355,6 +366,16 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         console.log('Force refreshing data...');
         fetchData(true); // Pass true to force refresh
       }
+
+      // Priority mode toggle: Ctrl+Shift+P
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        if (priorityManager.isPriorityInstance()) {
+          priorityManager.disablePriorityMode();
+        } else {
+          priorityManager.enablePriorityMode();
+        }
+      }
     };
 
     // Handle mouse movement in fullscreen
@@ -378,6 +399,21 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       setShowMouse(!isInFullscreen);
     };
 
+    // Priority change listener
+    const handlePriorityChange = (canMakeRequests: boolean) => {
+      setIsPriorityInstance(canMakeRequests);
+      if (!canMakeRequests) {
+        // If we lost priority, update the message
+        const blockMessage = priorityManager.getBlockMessage();
+        setData(prev => ({ ...prev, message: blockMessage }));
+      } else {
+        // If we gained priority, fetch fresh data
+        fetchData();
+      }
+    };
+
+    priorityManager.onPriorityChange(handlePriorityChange);
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -387,11 +423,19 @@ export default function HousePoints({ initialData }: HousePointsProps) {
       if (refreshInterval) clearInterval(refreshInterval);
       if (countdownInterval) clearInterval(countdownInterval);
       clearInterval(minuteCheckInterval);
+      priorityManager.removePriorityChangeListener(handlePriorityChange);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, [fetchData, toggleFullscreen, isFullscreen, inNoRefreshWindow]);
+
+  // Cleanup priority manager on unmount
+  useEffect(() => {
+    return () => {
+      priorityManager.cleanup();
+    };
+  }, [priorityManager]);
 
   // Calculate total points
   const totalPoints = data.houses.reduce((sum, house) => sum + house.points, 0);
@@ -536,7 +580,13 @@ export default function HousePoints({ initialData }: HousePointsProps) {
         </div>
 
         {/* Logo - Fixed to bottom right */}
-        <div className="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 z-10">
+        <div className="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 z-10 flex flex-col items-end gap-2">
+          {/* Priority indicator */}
+          {isPriorityInstance && (
+            <div className="bg-green-500 text-white px-2 py-1 rounded text-xs font-bold shadow-lg animate-pulse">
+              PRI
+            </div>
+          )}
           <Image
             src="/bancroftlogo.svg"
             alt="Bancroft School"
