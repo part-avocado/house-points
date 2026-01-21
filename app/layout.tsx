@@ -8,8 +8,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "House Points - Bancroft School",
-  description: "Real-time house points tracking system for Bancroft School",
+  title: "House Points",
+  description: "build 3.1",
 };
 
 export default function RootLayout({
