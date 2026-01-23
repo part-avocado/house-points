@@ -405,12 +405,19 @@ export default function HousePoints({ initialData }: HousePointsProps) {
             ( ˶°ㅁ°) !!
           </div>
           <div style={{ fontSize: '3vw', fontWeight: 400, marginBottom: '4vw' }}>
-            miku miku broken D:
+            miku break D:
           </div>
           <div style={{ fontSize: '1.2vw', color: '#444', marginTop: '2vw' }}>
             {data.message || 'default message here'}
           </div>
         </div>
+        {/* Version Number - Fixed to bottom left */}
+        <div className="fixed bottom-4 left-4 sm:bottom-8 sm:left-8 z-10">
+          <div className="text-xs text-gray-500">
+            v{versionnumber}
+          </div>
+        </div>
+
         {/* Logo - Fixed to bottom right */}
         <div className="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 z-10">
           <Image
