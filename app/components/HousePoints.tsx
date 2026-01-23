@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { House, HouseData } from '../types/house';
 import Image from 'next/image';
 import { SpeedInsights } from "@vercel/speed-insights/next"
+const versionnumber = "1.2";
 
-<SpeedInsights/>
 interface HousePointsProps {
   initialData: HouseData;
 }
@@ -532,6 +532,13 @@ export default function HousePoints({ initialData }: HousePointsProps) {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Version Number - Fixed to bottom left */}
+        <div className="fixed bottom-4 left-4 sm:bottom-8 sm:left-8 z-10">
+          <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            v{versionnumber}
           </div>
         </div>
 
