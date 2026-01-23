@@ -1,27 +1,5 @@
-name = "house-points"
-type = "javascript"
-account_id = ""
-workers_dev = true
-
-[env.production]
-routes = [
-  { pattern = "example.com", zone_name = "example.com" }
-]
+pages_build_output_dir = ".next"
 
 [build]
-command = "npm run build"
+command = "npm run build && rm -rf .next/cache"
 cwd = "./"
-watch_paths = ["src/**/*.ts", "src/**/*.tsx"]
-
-[build.upload]
-format = "service-worker"
-
-[env.production.build]
-command = "npm run build"
-watch_paths = ["app/**/*.tsx", "app/**/*.ts"]
-
-# Exclude cache from deployment
-exclude_files = [
-  ".next/cache/**/*",
-  "node_modules/.cache/**/*"
-]
