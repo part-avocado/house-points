@@ -1,7 +1,8 @@
-import { google } from 'googleapis';
 import { House, HouseData } from '../types/house';
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID || '';
+const API_KEY = process.env.GOOGLE_API_KEY || '';
+
 // Consolidate all ranges into a single request
 const RANGES = {
   TOTAL_POINTS: 'G2',
@@ -38,33 +39,30 @@ function getHouseColor(house: string): string {
 
 export async function getHouseData(): Promise<HouseData> {
   try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_CLIENT_EMAIL,
-        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      },
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
+    // Use Google Sheets API with API key (public read-only access)
+    const ranges = [
+      RANGES.TOTAL_POINTS,
+      RANGES.HOUSE_POINTS,
+      RANGES.INPUTS,
+      RANGES.CONTRIBUTORS,
+      RANGES.MESSAGE,
+      RANGES.SHOW_BOARD,
+      RANGES.BACKGROUND_COLOR
+    ].join('&ranges=');
 
-    const sheets = google.sheets({ version: 'v4', auth });
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchGet?ranges=${ranges}&key=${API_KEY}`;
     
-    // Get all data in a single API call with multiple ranges
-    const response = await sheets.spreadsheets.values.batchGet({
-      spreadsheetId: SPREADSHEET_ID,
-      ranges: [
-        RANGES.TOTAL_POINTS,
-        RANGES.HOUSE_POINTS,
-        RANGES.INPUTS,
-        RANGES.CONTRIBUTORS,
-        RANGES.MESSAGE,
-        RANGES.SHOW_BOARD,
-        RANGES.BACKGROUND_COLOR
-      ],
-    });
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Google Sheets API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const valueRanges = data.valueRanges || [];
     
     // Process the responses - they will be in the same order as requested
     const [totalPointsResponse, housePointsResponse, lastInputsResponse, contributorsResponse, messageResponse, showBoardResponse, backgroundColorResponse] 
-      = response.data.valueRanges || [];
+      = valueRanges;
     
     const totalPoints = parseInt(totalPointsResponse.values?.[0]?.[0] || '0', 10);
     const housePointsValues = housePointsResponse.values || [];
@@ -80,7 +78,7 @@ export async function getHouseData(): Promise<HouseData> {
 
     // Process last inputs data - only include rows that have all required data
     const lastInputsWithDetails = lastInputRows
-      .filter(row => 
+      .filter((row: any) => 
         row[0] && row[0].trim() !== '' && // Has timestamp
         row[2] && row[2].trim() !== '' && // Has house name
         row[3] !== undefined && // Has points
@@ -89,7 +87,7 @@ export async function getHouseData(): Promise<HouseData> {
       )
       .slice(-3) // Take last 3 valid entries
       .reverse() // Reverse to get newest first
-      .map(row => ({
+      .map((row: any) => ({
         timestamp: row[0], // Column A
         house: row[2] || '', // Column C
         points: parseInt(row[3] || '0', 10), // Column D
@@ -98,7 +96,7 @@ export async function getHouseData(): Promise<HouseData> {
     // Process contributor data
     const contributorPoints = new Map<string, number>();
     
-    contributorRows.forEach(row => {
+    contributorRows.forEach((row: any) => {
       const name = row[0]; // Column L (first column in our range)
       const points = parseInt(row[1] || '0', 10); // Column M (second column in our range)
       
