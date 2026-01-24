@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { House, HouseData } from '../types/house';
 import Image from 'next/image';
 import { SpeedInsights } from "@vercel/speed-insights/next"
-const versionnumber = "1.2";
+const versionnumber = "1.3 hotfix4";
 
 interface HousePointsProps {
   initialData: HouseData;
